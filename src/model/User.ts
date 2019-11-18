@@ -39,9 +39,12 @@ export class User {
 	email_address: string;
 
 	@Column({ length: 255 })
+	referral_code: string;
+
+	@Column({ length: 255 })
 	@Required()
 	@IgnoreProperty()
-	password: string;
+	security_code: string;
 
 	@Column()
 	@Required()

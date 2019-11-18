@@ -11,9 +11,9 @@ export class Otp {
 	@Default(uuid.v1())
 	otp_id: string = uuid.v1();
 
-	@Column({ length: 255 })
+	@Column({ type: 'varchar', length: 255 })
 	@Required()
-	type: string;
+	type: OtpType;
 
 	@Column({ length: 4 })
 	@Required()
@@ -31,4 +31,9 @@ export class Otp {
 	@Property()
 	updated_at: Date;
 
+}
+
+export enum OtpType {
+	EMAIL_ADDRESS='EMAIL_ADDRESS',
+	PHONE_NUMBER='PHONE_NUMBER',
 }
