@@ -24,27 +24,28 @@ export class ErrorHandlerMiddleware extends GlobalErrorHandlerMiddleware impleme
 		if (response.headersSent) {
 			throw error;
 		}
-		const craftErrorObject = (message: string, code: number) => ({
+		const craftErrorObject = (message: string, code: number, sentry?: string) => ({
 			success: false,
 			code,
 			message,
+			sentry
 		});
 		if (error instanceof Exception) {
 			$log.error('' + error);
 			response.status(error.status)
-				.json(craftErrorObject(error.message, error.status));
+				.json(craftErrorObject(error.message, error.status, (<any>response).sentry));
 			return;
 		}
 
 		if (typeof error === 'string') {
 			response.status(500)
-				.json(craftErrorObject(error, 500));
+				.json(craftErrorObject(error, 500, (<any>response).sentry));
 			return;
 		}
 
 		$log.error('' + error);
 		response.status(error.status || 500)
-			.json(craftErrorObject(error.message, error.status || 500));
+			.json(craftErrorObject(error.message, error.status || 500, (<any>response).sentry));
 		return;
 	}
 

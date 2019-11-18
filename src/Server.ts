@@ -23,6 +23,7 @@ import '@tsed/multipartfiles';
 import fs from 'fs';
 import Path from 'path';
 import { ejs } from 'consolidate';
+import Sentry from '@sentry/node';
 import helmet from 'helmet';
 import cors from 'cors';
 import compress from 'compression';
@@ -32,6 +33,7 @@ import favicon from 'express-favicon';
 import SendGridMail from '@sendgrid/mail';
 
 import { DatabaseConfig } from './config/database.config';
+import { MonitoringConfig } from './config/monitoring.config';
 import { MailConfig } from './config/mail.config';
 import { ServerConfig } from './config/server.config';
 import { NotFoundMiddleware } from './middlewares/NotFoundMiddleware';
@@ -90,11 +92,15 @@ export class Server extends ServerLoader {
 		this.set('trust proxy', 1);
 		this.set('views', this.settings.get('viewsDir'));
 		this.engine('ejs', ejs);
+		Sentry.init({
+			dsn: MonitoringConfig.sentryDSN
+		});
 		SendGridMail.setApiKey(MailConfig.sendGridKey);
 	}
 
 	public $beforeRoutesInit(): void {
 		this
+			.use(Sentry.Handlers.requestHandler())
 			.use(helmet())
 			.use(cors({
 				allowedHeaders: [
@@ -120,6 +126,7 @@ export class Server extends ServerLoader {
 	public $afterRoutesInit(): void {
 		this.use(NotFoundMiddleware)
 			.use(ResponseMiddleware)
+			.use(Sentry.Handlers.errorHandler())
 			.use(ErrorHandlerMiddleware)
 	}
 
