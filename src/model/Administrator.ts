@@ -9,7 +9,7 @@ export class Administrator {
 
 	@PrimaryColumn({ length: 36 })
 	@Default(uuid.v1())
-	admin_id: string = uuid.v1();
+	administrator_id: string = uuid.v1();
 
 	@Column({ length: 255 })
 	@Required()
