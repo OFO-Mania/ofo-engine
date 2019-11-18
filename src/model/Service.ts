@@ -18,40 +18,20 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColu
 import uuid from 'uuid';
 
 @Entity()
-@Unique(['_id'])
-@Unique(['email_address'])
-export class User {
+@Unique(['service_id'])
+export class Service {
 
 	@PrimaryColumn({ length: 36 })
 	@Default(uuid.v1())
-	user_id: string = uuid.v1();
+	service_id: string = uuid.v1();
 
 	@Column({ length: 255 })
 	@Required()
-	full_name: string;
+	description: string;
 
-	@Column({ length: 15 })
+	@Column({ length: 36 })
 	@Required()
-	phone_number: string;
-
-	@Column({ length: 255 })
-	@Required()
-	email_address: string;
-
-	@Column({ length: 255 })
-	@Required()
-	@IgnoreProperty()
-	password: string;
-
-	@Column()
-	@Required()
-	@Default(false)
-	phone_number_verified: boolean = false;
-
-	@Column()
-	@Required()
-	@Default(false)
-	email_address_verified: boolean = false;
+	merchant_id: string;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
