@@ -13,7 +13,7 @@ export class Otp {
 
 	@Column({ length: 255 })
 	@Required()
-	_type: string;
+	type: string;
 
 	@Column({ length: 4 })
 	@Required()

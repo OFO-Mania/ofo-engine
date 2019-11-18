@@ -8,7 +8,7 @@ export class BalanceHistory {
 
     @PrimaryColumn({ length: 36 })
     @Default(uuid.v1())
-    balance_id: string = uuid.v1();
+    balancehistory_id: string = uuid.v1();
 
     @Column({ length: 36 })
     @Required()

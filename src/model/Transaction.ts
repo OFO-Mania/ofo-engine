@@ -16,7 +16,7 @@ export class Transaction {
 
     @Column({ length: 255 })
     @Required()
-    _type: string;
+    type: string;
 
     @Column({ length: 36 })
     @Required()
