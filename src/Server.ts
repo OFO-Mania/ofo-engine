@@ -89,7 +89,7 @@ export class Server extends ServerLoader {
 	public $beforeInit(): void {
 		this.set('trust proxy', 1);
 		this.set('views', this.settings.get('viewsDir'));
-		this.engine('ejs', ejs);
+		// this.engine('ejs', ejs);
 		SendGridMail.setApiKey(MailConfig.sendGridKey);
 	}
 
