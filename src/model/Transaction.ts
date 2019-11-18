@@ -12,11 +12,11 @@ export class Transaction {
 
     @Column({ length: 30 })
     @Required()
-    amount_transaction: number;
+    amount: number;
 
     @Column({ length: 255 })
     @Required()
-    transaction_type: string;
+    _type: string;
 
     @Column({ length: 36 })
     @Required()
@@ -24,7 +24,7 @@ export class Transaction {
 
     @Column({ length: 36 })
     @Required()
-    service_code: string;
+    service_id: string;
 
     @CreateDateColumn({ type: 'timestamp' })
     @Property()

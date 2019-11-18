@@ -13,11 +13,11 @@ export class Otp {
 
 	@Column({ length: 255 })
 	@Required()
-	otp_type: string;
+	_type: string;
 
 	@Column({ length: 4 })
 	@Required()
-	otp_key: string;
+	key: string;
 
 	@Column({ length: 36 })
 	@Required()

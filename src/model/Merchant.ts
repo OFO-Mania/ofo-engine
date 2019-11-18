@@ -13,15 +13,15 @@ export class Merchant {
 
 	@Column({ length: 255 })
 	@Required()
-	merchant_name: string;
+	name: string;
 
 	@Column({ length: 15 })
 	@Required()
-	merchant_phone: string;
+	phone_number: string;
 
 	@Column({ length: 255 })
 	@Required()
-	merchant_email: string;
+	email_address: string;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

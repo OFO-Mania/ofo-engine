@@ -16,19 +16,19 @@ export class Deal {
 
     @Column({ length: 20 })
     @Required()
-    deal_amount: number;
+    amount: number;
 
     @Column({ length: 255 })
     @Required()
-    deal_image: string;
+    image: string;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @Column({ type: 'timestamp' })
     @Required()
-    deal_start : Date;
+    start_at : Date;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @Column({ type: 'timestamp' })
     @Required()
-    deal_end : Date;
+    end_at : Date;
 
     @CreateDateColumn({ type: 'timestamp' })
     @Property()
@@ -41,5 +41,4 @@ export class Deal {
     @Column({ length: 255 })
     @Required()
     service_id: string[];
-
 }

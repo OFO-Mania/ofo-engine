@@ -24,7 +24,7 @@ export class User {
 
 	@PrimaryColumn({ length: 36 })
 	@Default(uuid.v1())
-	_id: string = uuid.v1();
+	user_id: string = uuid.v1();
 
 	@Column({ length: 255 })
 	@Required()

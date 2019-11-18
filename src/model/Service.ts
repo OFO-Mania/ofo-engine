@@ -27,7 +27,7 @@ export class Service {
 
 	@Column({ length: 255 })
 	@Required()
-	service_description: string;
+	description: string;
 
 	@Column({ length: 36 })
 	@Required()
