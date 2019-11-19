@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { Controller, Post, Req, Res } from '@tsed/common';
+import { Controller, Post, Req, Res, UseAuth } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
@@ -28,7 +28,7 @@ import { ServerConfig } from '../config/server.config';
 import { sign } from 'jsonwebtoken';
 import { PassportConfig } from '../config/passport.config';
 import { Otp, OtpType } from '../model/Otp';
-import { MessagingConfig } from '../config/messaging.config';
+import { userInfo } from 'os';
 
 @Controller('/')
 @Docs('api-v1')
@@ -197,7 +197,7 @@ ${user.user_id}`,
 			}
 			let otp = await this.manager.findOne(Otp, {
 				type: OtpType.PHONE_NUMBER,
-				user_id: user.user_id
+				user_id: user.user_id,
 			});
 			if (typeof otp === 'undefined') {
 				throw new BadRequest(`You have never request verification code via phone number.`);
@@ -277,5 +277,78 @@ ${user.user_id}`,
 			throw error;
 		}
 	}
+
+	@Post('/email_verification/verify')
+	@ValidateRequest({
+		body: ['email_address, verification_code'], 
+		useTrim: true
+	})
+	public async verifyEmailVerification(@Req() request: Req, @Res() response: Res): Promise<User> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				email_address: request.body.email_address,
+				verification_code: request.body.verification_code;
+			};
+			const emailRegExp = new RegExp(
+				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+			);
+			if (!emailRegExp.test(body.email_address)) {
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+			}
+			let user = await this.manager.findOne(User, {
+				email_address: body.email_address
+			});
+			if (typeof user === 'undefined') {
+				throw new BadRequest(`Email address ${body.email_address} is not a registered user.`);
+			}
+			let otp = await this.manager.findOne(Otp, {
+				type: OtpType.EMAIL_ADDRESS,
+				user_id: user.user_id
+			});
+			if (typeof otp === 'undefined') {
+				throw new BadRequest(`You have never request verification code via email address`);
+			}
+			if (otp.key !== body.verification_code) {
+				throw new BadRequest(`The verification code you entered is invalid.`)
+			}
+			await this.manager.remove(otp);
+			await this.databaseService.commit();
+			return user;
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+	@Post('/join/set_securiy_code')
+	@ValidateRequest({
+		body: ['security_code'], 
+		useTrim: true
+	})
+	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<User> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				security_code: request.body.security_code,	
+			};
+			
+
+
+			await this.databaseService.commit();
+			
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+
+
+
+
+
+
+
 
 }
