@@ -17,7 +17,8 @@ import { Controller, Post, Req, Res } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
-import { } from 'argon2';
+import Argon from 'argon2';
+import twilio from 'twilio';
 import SendGridMail from '@sendgrid/mail';
 
 import { DatabaseService } from '../services/DatabaseService';
@@ -27,6 +28,7 @@ import { ServerConfig } from '../config/server.config';
 import { sign } from 'jsonwebtoken';
 import { PassportConfig } from '../config/passport.config';
 import { Otp, OtpType } from '../model/Otp';
+import { MessagingConfig } from '../config/messaging.config';
 
 @Controller('/')
 @Docs('api-v1')
@@ -146,9 +148,21 @@ export class AuthenticationController {
 			otp.type = OtpType.PHONE_NUMBER;
 			otp.user_id = user.user_id;
 			// For now
-			otp.key = '123456';
-			//otp.key = AuthenticationController.generateOTP();
+			otp.key = AuthenticationController.generateOTP();
 			otp = await this.manager.save(otp);
+			// Send Twilio
+			const client = twilio(MessagingConfig.twilio.accountServiceID, MessagingConfig.twilio.authToken);
+			const message = client.messages.create({
+				body: `<#> Verification Code OFO: ${otp.key}
+
+
+DO NOT GIVE THIS SECRET CODE TO ANYONE, INCLUDING THOSE CLAIMING TO BE FROM OFO
+
+Call 0857-2563-9268 for help
+${user.user_id}`,
+				messagingServiceSid: MessagingConfig.twilio.messagingServiceID,
+				to: body.phone_number
+			});
 			await this.databaseService.commit();
 			return user;
 		} catch (error) {
