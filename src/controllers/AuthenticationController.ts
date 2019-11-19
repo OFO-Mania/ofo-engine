@@ -319,7 +319,13 @@ export class AuthenticationController {
 			const body = {
 				security_code: request.body.security_code,	
 			};
-			
+			const emailRegExp = new RegExp(
+				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+			);
+			if (!emailRegExp.test(body.email_address)) {
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+			}
+
 
 
 			await this.databaseService.commit();
