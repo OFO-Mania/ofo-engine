@@ -41,6 +41,11 @@ export class User {
 	@Column({ length: 255 })
 	referral_code: string;
 
+	@Column()
+	@Required()
+	@Default(false)
+	has_security_code: boolean = false;
+
 	@Column({ length: 255 })
 	@Required()
 	@IgnoreProperty()
@@ -49,12 +54,7 @@ export class User {
 	@Column()
 	@Required()
 	@Default(false)
-	phone_number_verified: boolean = false;
-
-	@Column()
-	@Required()
-	@Default(false)
-	email_address_verified: boolean = false;
+	is_verified: boolean = false;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

@@ -24,6 +24,11 @@ export class Administrator {
 	@IgnoreProperty()
     password: string;
 
+	@Column()
+	@Required()
+	@Default(false)
+	is_verified: boolean = false;
+
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
 	created_at: Date;
