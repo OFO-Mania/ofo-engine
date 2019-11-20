@@ -17,18 +17,18 @@ import { Controller, Post, Req, Res, UseAuth } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
-import Argon from 'argon2';
+import argon2 from 'argon2';
 import twilio from 'twilio';
 import SendGridMail from '@sendgrid/mail';
-
-import { DatabaseService } from '../services/DatabaseService';
-import { ValidateRequest } from '../decorators/ValidateRequestDecorator';
-import { User } from '../model/User';
-import { ServerConfig } from '../config/server.config';
 import { sign } from 'jsonwebtoken';
+
+import { MessagingConfig } from '../config/messaging.config';
 import { PassportConfig } from '../config/passport.config';
+import { ValidateRequest } from '../decorators/ValidateRequestDecorator';
+import { DatabaseService } from '../services/DatabaseService';
+import { UserAuthenticationMiddleware } from '../middlewares/UserAuthenticationMiddleware';
+import { User } from '../model/User';
 import { Otp, OtpType } from '../model/Otp';
-import { userInfo } from 'os';
 
 @Controller('/')
 @Docs('api-v1')
@@ -81,7 +81,11 @@ export class AuthenticationController {
 				email_address: body.email_address
 			});
 			if (typeof user !== 'undefined') {
-				throw new BadRequest(`Email address ${body.email_address} has already registered.`);
+				if (user.is_verified) {
+					throw new BadRequest(`Email address ${body.email_address} has already registered.`);
+				} else {
+					await this.manager.remove(user);
+				}
 			}
 			if (body.phone_number.startsWith('0')) {
 				body.phone_number = '62'.concat(body.phone_number.substring(1));
@@ -93,7 +97,11 @@ export class AuthenticationController {
 				phone_number: body.phone_number
 			});
 			if (typeof user !== 'undefined') {
-				throw new BadRequest(`Phone number ${body.phone_number} has already registered.`);
+				if (user.is_verified) {
+					throw new BadRequest(`Phone number ${body.phone_number} has already registered.`);
+				} else {
+					await this.manager.remove(user);
+				}
 			}
 			user = new User();
 			user.phone_number = body.phone_number;
@@ -269,7 +277,6 @@ ${user.user_id}`,
 `,
 			};
 			await SendGridMail.send(message);
-
 			await this.databaseService.commit();
 			return user;
 		} catch (error) {
@@ -280,10 +287,12 @@ ${user.user_id}`,
 
 	@Post('/email_verification/verify')
 	@ValidateRequest({
-		body: ['email_address, verification_code'], 
+		body: ['email_address, verification_code'],
 		useTrim: true
 	})
-	public async verifyEmailVerification(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async verifyEmailVerification(@Req() request: Req, @Res() response: Res): Promise<{
+		token: string
+	}> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -313,6 +322,34 @@ ${user.user_id}`,
 				throw new BadRequest(`The verification code you entered is invalid.`)
 			}
 			await this.manager.remove(otp);
+			const { security_code, ...payload } = user;
+			const token = sign(payload, PassportConfig.jwt.secret);
+			await this.databaseService.commit();
+			return { token };
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+	@Post('/join/set_security_code')
+	@ValidateRequest({
+		body: ['security_code'],
+		useTrim: true
+	})
+	@UseAuth(UserAuthenticationMiddleware)
+	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<User> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				security_code: request.body.security_code,
+			};
+			if (body.security_code.length !== 6 || !isNaN(body.security_code)) {
+				throw new BadRequest('Security code must be 6 numerical characters.')
+			}
+			let user: User = <User> (<any>request).user;
+			user.security_code = await argon2.hash(body.security_code);
+			user = await this.manager.save(user);
 			await this.databaseService.commit();
 			return user;
 		} catch (error) {
@@ -320,35 +357,5 @@ ${user.user_id}`,
 			throw error;
 		}
 	}
-
-	@Post('/join/set_securiy_code')
-	@ValidateRequest({
-		body: ['security_code'], 
-		useTrim: true
-	})
-	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<User> {
-		try {
-			await this.databaseService.startTransaction();
-			const body = {
-				security_code: request.body.security_code,	
-			};
-			
-
-
-			await this.databaseService.commit();
-			
-		} catch (error) {
-			await this.databaseService.rollback();
-			throw error;
-		}
-	}
-
-
-
-
-
-
-
-
 
 }
