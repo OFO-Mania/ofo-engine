@@ -3,7 +3,7 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColu
 import uuid from 'uuid';
 
 @Entity()
-@Unique(['admin_id'])
+@Unique(['administrator_id'])
 @Unique(['email_address'])
 export class Administrator {
 

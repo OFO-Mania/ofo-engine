@@ -4,7 +4,7 @@ import uuid from 'uuid';
 
 @Entity()
 @Unique(['otp_id'])
-@Unique(['otp_key'])
+@Unique(['key'])
 export class Otp {
 
 	@PrimaryColumn({ length: 36 })

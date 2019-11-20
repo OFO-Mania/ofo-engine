@@ -14,7 +14,7 @@ export class Deal {
     @Required()
     description: string;
 
-    @Column({ length: 20 })
+    @Column()
     @Required()
     amount: number;
 
@@ -38,7 +38,7 @@ export class Deal {
     @Property()
     updated_at: Date;
 
-    @Column({ length: 255 })
+    @Column({ length: 1024 })
     @Required()
-    service_id: string[];
+    service_id: string;
 }

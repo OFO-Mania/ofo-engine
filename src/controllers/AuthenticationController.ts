@@ -27,7 +27,7 @@ import { PassportConfig } from '../config/passport.config';
 import { ValidateRequest } from '../decorators/ValidateRequestDecorator';
 import { DatabaseService } from '../services/DatabaseService';
 import { UserAuthenticationMiddleware } from '../middlewares/UserAuthenticationMiddleware';
-import { User } from '../model/User';
+import { User, UserType } from '../model/User';
 import { Otp, OtpType } from '../model/Otp';
 
 @Controller('/')
@@ -59,7 +59,7 @@ export class AuthenticationController {
 
 	@Post('/join')
 	@ValidateRequest({
-		body: ['full_name', 'phone_number', 'email_address', 'referral_code'],
+		body: ['full_name', 'phone_number', 'email_address'],
 		useTrim: true
 	})
 	public async join(@Req() request: Req, @Res() response: Res): Promise<User> {
@@ -104,10 +104,10 @@ export class AuthenticationController {
 				}
 			}
 			user = new User();
+			user.full_name = body.full_name;
 			user.phone_number = body.phone_number;
 			user.email_address = body.email_address;
 			user.referral_code = body.referral_code;
-			user.security_code = '';
 			user = await this.manager.save(user);
 			await this.databaseService.commit();
 			return user;
@@ -297,7 +297,7 @@ ${user.user_id}`,
 			await this.databaseService.startTransaction();
 			const body = {
 				email_address: request.body.email_address,
-				verification_code: request.body.verification_code;
+				verification_code: request.body.verification_code
 			};
 			const emailRegExp = new RegExp(
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/

@@ -27,11 +27,7 @@ export class Service {
 
 	@Column({ length: 255 })
 	@Required()
-	description: string;
-
-	@Column({ length: 36 })
-	@Required()
-	merchant_id: string;
+	serviceprovider_id: string;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
