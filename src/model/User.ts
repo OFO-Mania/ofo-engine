@@ -24,7 +24,6 @@ export enum UserType {
 
 @Entity()
 @Unique(['user_id'])
-@Unique(['email_address'])
 export class User {
 
 	@PrimaryColumn({ length: 36 })
@@ -43,7 +42,7 @@ export class User {
 	@Required()
 	email_address: string;
 
-	@Column({ length: 255 })
+	@Column({ length: 255, nullable: true })
 	referral_code: string;
 
 	@Column()
@@ -62,7 +61,7 @@ export class User {
 	@Default(false)
 	is_verified: boolean = false;
 
-	@Column({ length: 255 })
+	@Column({ length: 255, nullable: true })
 	image: string;
 
 	@Column({ length: 255 })
@@ -73,7 +72,7 @@ export class User {
 	@Column()
 	@Required()
 	@Default(0)
-	current_balance: number = 0;	
+	current_balance: number = 0;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

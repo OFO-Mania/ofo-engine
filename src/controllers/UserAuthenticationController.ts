@@ -13,35 +13,35 @@
  * limitations under the License.
  */
 
-import { Controller, Post, Req, Res, UseAuth } from '@tsed/common';
+import { Controller, Post, Req, Res } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
 import argon2 from 'argon2';
 import twilio from 'twilio';
 import SendGridMail from '@sendgrid/mail';
-import { sign } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 import { MessagingConfig } from '../config/messaging.config';
 import { PassportConfig } from '../config/passport.config';
 import { ValidateRequest } from '../decorators/ValidateRequestDecorator';
 import { DatabaseService } from '../services/DatabaseService';
-import { UserAuthenticationMiddleware } from '../middlewares/UserAuthenticationMiddleware';
 import { User, UserType } from '../model/User';
-import { Otp, OtpType } from '../model/Otp';
+import { VerificationCode, VerificationCodeType } from '../model/VerificationCode';
+import { OneTimeToken } from '../model/OneTimeToken';
 
-@Controller('/')
+@Controller('/auth')
 @Docs('api-v1')
-export class AuthenticationController {
+export class UserAuthenticationController {
 
 	private manager: EntityManager;
 
 	constructor(private databaseService: DatabaseService) {}
 
-	private static generateOTP(): string {
+	private static generateVerificationCode(): string {
 		const availableCharacters = '0123456789';
 		const otp = [];
-		for (let i = 0; i < 6; i++) {
+		for (let i = 0; i < 4; i++) {
 			otp.push(
 				availableCharacters.charAt(
 					Math.floor(
@@ -62,14 +62,14 @@ export class AuthenticationController {
 		body: ['full_name', 'phone_number', 'email_address'],
 		useTrim: true
 	})
-	public async join(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async join(@Req() request: Req, @Res() response: Res): Promise<{ user: User }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
-				full_name: request.body.email_address,
+				full_name: request.body.full_name,
 				phone_number: request.body.phone_number,
 				email_address: request.body.email_address,
-				referral_code: request.body.referral_code,
+				referral_code: request.body.referral_code || null,
 			};
 			const emailRegExp = new RegExp(
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
@@ -78,7 +78,8 @@ export class AuthenticationController {
 				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
 			}
 			let user = await this.manager.findOne(User, {
-				email_address: body.email_address
+				email_address: body.email_address,
+				type: UserType.USER
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -94,7 +95,8 @@ export class AuthenticationController {
 				body.phone_number = '+'.concat(body.phone_number);
 			}
 			user = await this.manager.findOne(User, {
-				phone_number: body.phone_number
+				phone_number: body.phone_number,
+				type: UserType.USER
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -110,7 +112,7 @@ export class AuthenticationController {
 			user.referral_code = body.referral_code;
 			user = await this.manager.save(user);
 			await this.databaseService.commit();
-			return user;
+			return { user };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
@@ -122,7 +124,7 @@ export class AuthenticationController {
 		body: ['phone_number'],
 		useTrim: true
 	})
-	public async sendPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async sendPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<string> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -135,44 +137,44 @@ export class AuthenticationController {
 				body.phone_number = '+'.concat(body.phone_number);
 			}
 			const user = await this.manager.findOne(User, {
-				phone_number: body.phone_number
+				phone_number: body.phone_number,
+				type: UserType.USER
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
 			}
-			let otp = await this.manager.findOne(Otp, {
-				type: OtpType.PHONE_NUMBER,
+			let verificationCode = await this.manager.findOne(VerificationCode, {
+				type: VerificationCodeType.PHONE_NUMBER,
 				user_id: user.user_id
 			});
-			if (typeof otp !== 'undefined') {
-				const delta = (new Date()).getTime() - otp.created_at.getTime();
+			if (typeof verificationCode !== 'undefined') {
+				const delta = (new Date()).getTime() - verificationCode.created_at.getTime();
 				if (delta < (30 * 1000)) {
 					const waitTime = Math.ceil(((30 * 1000) - delta) / 1000);
-					throw new BadRequest(`Please wait ${waitTime} seconds to request new verification code.`);
+					throw new BadRequest(`Please wait ${waitTime} seconds to request new phone verification code.`);
 				}
-				await this.manager.remove(otp);
+				await this.manager.remove(verificationCode);
 			}
-			otp = new Otp();
-			otp.type = OtpType.PHONE_NUMBER;
-			otp.user_id = user.user_id;
-			// For now
-			otp.key = AuthenticationController.generateOTP();
-			otp = await this.manager.save(otp);
-			// Send Twilio
+			verificationCode = new VerificationCode();
+			verificationCode.type = VerificationCodeType.PHONE_NUMBER;
+			verificationCode.user_id = user.user_id;
+			verificationCode.value = UserAuthenticationController.generateVerificationCode();
+			verificationCode = await this.manager.save(verificationCode);
 			const client = twilio(MessagingConfig.twilio.accountServiceID, MessagingConfig.twilio.authToken);
-			const message = client.messages.create({
-				body: `<#> Verification Code OFO: ${otp.key}
-
+			await client.messages.create({
+				body: `
+<#> Verification Code OFO: ${verificationCode.value}
 
 DO NOT GIVE THIS SECRET CODE TO ANYONE, INCLUDING THOSE CLAIMING TO BE FROM OFO
 
 Call 0857-2563-9268 for help
+
 ${user.user_id}`,
 				messagingServiceSid: MessagingConfig.twilio.messagingServiceID,
 				to: body.phone_number
 			});
 			await this.databaseService.commit();
-			return user;
+			return 'We have sent a verification code to your phone number.';
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
@@ -184,7 +186,10 @@ ${user.user_id}`,
 		body: ['phone_number', 'verification_code'],
 		useTrim: true
 	})
-	public async verifyPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async verifyPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<{
+		has_security_code: boolean,
+		one_time_token: string
+	}> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -198,39 +203,47 @@ ${user.user_id}`,
 				body.phone_number = '+'.concat(body.phone_number);
 			}
 			const user = await this.manager.findOne(User, {
-				phone_number: body.phone_number
+				phone_number: body.phone_number,
+				type: UserType.USER
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
 			}
-			let otp = await this.manager.findOne(Otp, {
-				type: OtpType.PHONE_NUMBER,
+			let verificationCode = await this.manager.findOne(VerificationCode, {
+				type: VerificationCodeType.PHONE_NUMBER,
 				user_id: user.user_id,
 			});
-			if (typeof otp === 'undefined') {
+			if (typeof verificationCode === 'undefined') {
 				throw new BadRequest(`You have never request verification code via phone number.`);
 			}
-			if (otp.key !== body.verification_code) {
+			if (verificationCode.value !== body.verification_code) {
 				throw new BadRequest(`The verification code you entered is invalid.`);
 			}
-			await this.manager.remove(otp);
+			await this.manager.remove(verificationCode);
+			let oneTimeToken = new OneTimeToken();
+			oneTimeToken.user_id = user.user_id;
+			oneTimeToken = await this.manager.save(oneTimeToken);
 			await this.databaseService.commit();
-			return user;
+			return {
+				has_security_code: user.has_security_code,
+				one_time_token: oneTimeToken.one_time_token_id
+			};
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
 		}
 	}
 
-	@Post('/email_address/send')
+	@Post('/email_verification/send')
 	@ValidateRequest({
-		body: ['email_address'],
+		body: [ 'email_address' ],
 		useTrim: true
 	})
-	public async sendEmailVerification(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async sendEmailVerification(@Req() request: Req, @Res() response: Res): Promise<string> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
+				one_time_token: request.body.one_time_token,
 				email_address: request.body.email_address,
 			};
 			const emailRegExp = new RegExp(
@@ -240,28 +253,29 @@ ${user.user_id}`,
 				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
 			}
 			const user = await this.manager.findOne(User, {
-				email_address: body.email_address
+				email_address: body.email_address,
+				type: UserType.USER
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Email address ${body.email_address} is not a registered user.`);
 			}
-			let otp = await this.manager.findOne(Otp, {
-				type: OtpType.EMAIL_ADDRESS,
+			let verificationCode = await this.manager.findOne(VerificationCode, {
+				type: VerificationCodeType.EMAIL_ADDRESS,
 				user_id: user.user_id
 			});
-			if (typeof otp !== 'undefined') {
-				const delta = (new Date()).getTime() - otp.created_at.getTime();
+			if (typeof verificationCode !== 'undefined') {
+				const delta = (new Date()).getTime() - verificationCode.created_at.getTime();
 				if (delta < (30 * 1000)) {
 					const waitTime = Math.ceil(((30 * 1000) - delta) / 1000);
-					throw new BadRequest(`Please wait ${waitTime} seconds to request new verification code.`);
+					throw new BadRequest(`Please wait ${waitTime} seconds to request new email verification code.`);
 				}
-				await this.manager.remove(otp);
+				await this.manager.remove(verificationCode);
 			}
-			otp = new Otp();
-			otp.type = OtpType.EMAIL_ADDRESS;
-			otp.user_id = user.user_id;
-			otp.key = AuthenticationController.generateOTP();
-			otp = await this.manager.save(otp);
+			verificationCode = new VerificationCode();
+			verificationCode.type = VerificationCodeType.EMAIL_ADDRESS;
+			verificationCode.user_id = user.user_id;
+			verificationCode.value = UserAuthenticationController.generateVerificationCode();
+			verificationCode = await this.manager.save(verificationCode);
 			// Send E-mail
 			const message = {
 				to: user.email_address,
@@ -270,7 +284,7 @@ ${user.user_id}`,
 				html: `
 <div>
 	Hi, ${user.full_name}!<br /><br />
-	Welcome to OFO e-Money! Please enter the code <b>${otp.key}</b> on the OFO app to continue with the registration.<br /><br />
+	Welcome to OFO e-Money! Please enter the code <b>${verificationCode.value}</b> on the OFO app to continue with the registration.<br /><br />
 	Regards,<br />
 	OFO Operation Team
 </div>
@@ -278,7 +292,7 @@ ${user.user_id}`,
 			};
 			await SendGridMail.send(message);
 			await this.databaseService.commit();
-			return user;
+			return 'We have sent a verification code to your email address.';
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
@@ -287,11 +301,11 @@ ${user.user_id}`,
 
 	@Post('/email_verification/verify')
 	@ValidateRequest({
-		body: ['email_address, verification_code'],
+		body: [ 'email_address', 'verification_code' ],
 		useTrim: true
 	})
 	public async verifyEmailVerification(@Req() request: Req, @Res() response: Res): Promise<{
-		token: string
+		one_time_token: string
 	}> {
 		try {
 			await this.databaseService.startTransaction();
@@ -306,52 +320,114 @@ ${user.user_id}`,
 				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
 			}
 			let user = await this.manager.findOne(User, {
-				email_address: body.email_address
+				email_address: body.email_address,
+				type: UserType.USER
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Email address ${body.email_address} is not a registered user.`);
 			}
-			let otp = await this.manager.findOne(Otp, {
-				type: OtpType.EMAIL_ADDRESS,
+			let verificationCode = await this.manager.findOne(VerificationCode, {
+				type: VerificationCodeType.EMAIL_ADDRESS,
 				user_id: user.user_id
 			});
-			if (typeof otp === 'undefined') {
+			if (typeof verificationCode === 'undefined') {
 				throw new BadRequest(`You have never request verification code via email address`);
 			}
-			if (otp.key !== body.verification_code) {
+			if (verificationCode.value !== body.verification_code) {
 				throw new BadRequest(`The verification code you entered is invalid.`)
 			}
-			await this.manager.remove(otp);
-			const { security_code, ...payload } = user;
-			const token = sign(payload, PassportConfig.jwt.secret);
+			await this.manager.remove(verificationCode);
+			user.is_verified = true;
+			user = await this.manager.save(user);
+			let oneTimeToken = new OneTimeToken();
+			oneTimeToken.user_id = user.user_id;
+			oneTimeToken = await this.manager.save(oneTimeToken);
 			await this.databaseService.commit();
-			return { token };
+			return { one_time_token: oneTimeToken.one_time_token_id };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
 		}
 	}
 
-	@Post('/join/set_security_code')
+	@Post('/set_security_code')
 	@ValidateRequest({
-		body: ['security_code'],
+		body: [ 'one_time_token', 'security_code' ],
 		useTrim: true
 	})
-	@UseAuth(UserAuthenticationMiddleware)
-	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<User> {
+	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
+				one_time_token: request.body.one_time_token,
 				security_code: request.body.security_code,
 			};
-			if (body.security_code.length !== 6 || !isNaN(body.security_code)) {
+			const numericRegExp = new RegExp(/^[0-9]+$/);
+			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
 				throw new BadRequest('Security code must be 6 numerical characters.')
 			}
-			let user: User = <User> (<any>request).user;
+			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
+				one_time_token_id: body.one_time_token
+			});
+			if (typeof oneTimeToken === 'undefined') {
+				throw new BadRequest(`The provided One Time Token is invalid.`);
+			}
+			let user = await this.manager.findOne(User, {
+				user_id: oneTimeToken.user_id
+			});
+			if (typeof user === 'undefined') {
+				throw new BadRequest(`The provided One Time Token is invalid.`);
+			}
+			await this.manager.remove(oneTimeToken);
+			user.has_security_code = true;
 			user.security_code = await argon2.hash(body.security_code);
 			user = await this.manager.save(user);
+			const payload = user.user_id;
+			const token = jwt.sign(payload, PassportConfig.jwt.secret);
 			await this.databaseService.commit();
-			return user;
+			return { user, token };
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+	@Post('/sign_in')
+	@ValidateRequest({
+		body: [ 'one_time_token', 'security_code' ],
+		useTrim: true
+	})
+	public async signIn(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				one_time_token: request.body.one_time_token,
+				security_code: request.body.security_code,
+			};
+			const numericRegExp = new RegExp(/^[0-9]+$/);
+			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
+				throw new BadRequest('Security code must be 6 numerical characters.')
+			}
+			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
+				one_time_token_id: body.one_time_token
+			});
+			if (typeof oneTimeToken === 'undefined') {
+				throw new BadRequest(`The provided One Time Token is invalid.`);
+			}
+			let user = await this.manager.findOne(User, {
+				user_id: oneTimeToken.user_id
+			});
+			if (typeof user === 'undefined') {
+				throw new BadRequest(`The provided One Time Token is invalid.`);
+			}
+			await this.manager.remove(oneTimeToken);
+			if (!(await argon2.verify(user.security_code, body.security_code))) {
+				throw new BadRequest(`Security code is invalid!`);
+			}
+			const payload = user.user_id;
+			const token = jwt.sign(payload, PassportConfig.jwt.secret);
+			await this.databaseService.commit();
+			return { user, token };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;

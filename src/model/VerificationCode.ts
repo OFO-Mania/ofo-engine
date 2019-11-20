@@ -3,21 +3,20 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColu
 import uuid from 'uuid';
 
 @Entity()
-@Unique(['otp_id'])
-@Unique(['key'])
-export class Otp {
+@Unique(['verification_code_id'])
+export class VerificationCode {
 
 	@PrimaryColumn({ length: 36 })
 	@Default(uuid.v1())
-	otp_id: string = uuid.v1();
+	verification_code_id: string = uuid.v1();
 
 	@Column({ type: 'varchar', length: 255 })
 	@Required()
-	type: OtpType;
+	type: VerificationCodeType;
 
 	@Column({ length: 4 })
 	@Required()
-	key: string;
+	value: string;
 
 	@Column({ length: 36 })
 	@Required()
@@ -27,13 +26,9 @@ export class Otp {
 	@Property()
 	created_at: Date;
 
-	@UpdateDateColumn({ type: 'timestamp' })
-	@Property()
-	updated_at: Date;
-
 }
 
-export enum OtpType {
+export enum VerificationCodeType {
 	EMAIL_ADDRESS='EMAIL_ADDRESS',
 	PHONE_NUMBER='PHONE_NUMBER',
 }

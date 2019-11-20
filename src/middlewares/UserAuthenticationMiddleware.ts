@@ -19,7 +19,7 @@ import jwt from 'jsonwebtoken';
 import { PassportConfig } from '../config/passport.config';
 import { EntityManager } from 'typeorm';
 import { DatabaseService } from '../services/DatabaseService';
-import { User } from '../model/User';
+import { User, UserType } from '../model/User';
 
 @Middleware()
 export class UserAuthenticationMiddleware implements IMiddleware {
@@ -49,14 +49,18 @@ export class UserAuthenticationMiddleware implements IMiddleware {
 			: tokenString;
 		try {
 			const payload = jwt.verify(token, PassportConfig.jwt.secret);
-			if (typeof payload === 'object' && typeof (<any>payload).user_id === 'string') {
-				const user = await this.manager.findOne(User, (<any>payload).user_id);
+			if (typeof payload === 'string') {
+				const user = await this.manager.findOne(User, {
+					user_id: payload,
+					type: UserType.USER
+				});
 				if (typeof user === 'undefined') {
 					throw new BadRequest('Authentication token is invalid.');
 				}
 				if (!user.is_verified) {
 					throw new Forbidden('Account has not been verified.')
 				}
+				// User Authenticated
 				(<any>request).user = user;
 				(<any>response).user = user;
 			}
