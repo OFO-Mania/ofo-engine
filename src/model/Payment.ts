@@ -12,6 +12,10 @@ export class Payment {
 
     @Column({ length: 255 })
     @Required()
+    account_number: string;
+
+    @Column({ length: 255 })
+    @Required()
     service: ServiceType;
 
     @Column({ length: 1024 })

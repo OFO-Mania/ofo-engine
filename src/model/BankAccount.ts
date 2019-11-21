@@ -3,7 +3,7 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColu
 import uuid from 'uuid';
 
 @Entity()
-@Unique(['account'])
+@Unique(['account_id'])
 export class BankAccount {
 
 	@PrimaryColumn({ length: 36 })
@@ -13,6 +13,10 @@ export class BankAccount {
 	@Column({ length: 255 })
 	@Required()
 	name: string;
+
+    @Column({ length: 255 })
+    @Required()
+    account_number: string;
 
     @Column({ length: 255 })
 	@Required()

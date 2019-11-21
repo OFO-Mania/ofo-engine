@@ -29,6 +29,10 @@ export class Transaction {
 
     @Column({ length: 255 })
     @Required()
+    wallet_type: WalletType;
+
+    @Column({ length: 255 })
+    @Required()
 	target_id: string;
 
     @Column({ length: 36 })
@@ -56,4 +60,9 @@ export enum TargetType {
     USER='USER',
     BANK='BANK',
     PAYMENT='PAYMENT',
+}
+
+export enum WalletType {
+    CASH='CASH',
+    POINT='POINT',
 }
