@@ -55,7 +55,11 @@ const rootDir = Path.resolve(__dirname);
 		'/': `${rootDir}/controllers/*{.ts,.js}`,
 		'/v1': `${rootDir}/controllers/v1/**/*{.ts,.js}`,
 	},
-	uploadDir: `${rootDir}/../data`,
+	statics: {
+		"/static": `${rootDir}/../ugc`,
+		"/merchant": `${rootDir}/../../ofo-panel/public`
+	},
+	uploadDir: `${rootDir}/../ugc`,
 	typeorm: [
 		{
 			name: 'default',
