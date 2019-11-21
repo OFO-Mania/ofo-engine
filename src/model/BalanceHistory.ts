@@ -25,7 +25,6 @@ export class BalanceHistory {
     @CreateDateColumn({ type: 'timestamp' })
     @Property()
     created_at: Date;
-
 }
 
 export enum BalanceType {

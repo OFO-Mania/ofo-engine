@@ -3,13 +3,13 @@ import { Docs } from '@tsed/swagger';
 import { BadRequest, NotFound } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
 
-import { DatabaseService } from '../../services/DatabaseService';
-import { ValidateRequest } from '../../decorators/ValidateRequestDecorator';
-import { Transaction, TargetType, FlowType } from '../../model/Transaction';
-import { User, UserType } from '../../model/User';
-import { UserAuthenticationMiddleware } from '../../middlewares/UserAuthenticationMiddleware';
-import { BalanceHistory, BalanceType } from '../../model/BalanceHistory';
-import { BankAccount } from '../../model/BankAccount';
+import { DatabaseService } from '../../../services/DatabaseService';
+import { ValidateRequest } from '../../../decorators/ValidateRequestDecorator';
+import { Transaction, TargetType, FlowType, WalletType } from '../../../model/Transaction';
+import { User, UserType } from '../../../model/User';
+import { UserAuthenticationMiddleware } from '../../../middlewares/UserAuthenticationMiddleware';
+import { BalanceHistory, BalanceType } from '../../../model/BalanceHistory';
+import { BankAccount } from '../../../model/BankAccount';
 
 @Controller('/transaction')
 @Docs('api-v1')
@@ -67,7 +67,7 @@ export class TransactionController {
             if (body.amount <= 0) {
                 throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
             }
-            if (body.amount > sender.current_balance) {
+            if (body.amount > sender.balance_cash) {
                 throw new BadRequest('You have insufficient OFO Cash');
             }
 
@@ -79,6 +79,7 @@ export class TransactionController {
             outgoingTransaction.user_id = sender.user_id;
             outgoingTransaction.flow = FlowType.OUTGOING;
             outgoingTransaction.note = body.note;
+            outgoingTransaction.wallet_type = WalletType.CASH;
 
             //add new transaction receiver
             let incomingTransaction = new Transaction();
@@ -88,12 +89,13 @@ export class TransactionController {
             incomingTransaction.user_id = receiver.user_id;
             incomingTransaction.flow = FlowType.INCOMING;
             incomingTransaction.note = body.note;
+            incomingTransaction.wallet_type = WalletType.CASH;
 
             //update balance in sender user
-            sender.current_balance = sender.current_balance - body.amount;
+            sender.balance_cash = sender.balance_cash - body.amount;
 
             //update balance in receiver user
-            receiver.current_balance = receiver.current_balance + body.amount;
+            receiver.balance_cash = receiver.balance_cash + body.amount;
 
             const results = await Promise.all([
                 this.manager.save(outgoingTransaction),
@@ -111,13 +113,13 @@ export class TransactionController {
             //add balance history in sender user
             let senderBalanceHistory = new BalanceHistory();
             senderBalanceHistory.user_id = sender.user_id;
-            senderBalanceHistory.balance = sender.current_balance;
+            senderBalanceHistory.balance = sender.balance_cash;
             senderBalanceHistory.type = BalanceType.OFO_CASH;
 
             //add balance history in receiver user
             let receiverBalanceHistory = new BalanceHistory();
             receiverBalanceHistory.user_id = receiver.user_id;
-            receiverBalanceHistory.balance = receiver.current_balance;
+            receiverBalanceHistory.balance = receiver.balance_cash;
             receiverBalanceHistory.type = BalanceType.OFO_CASH;
 
             await Promise.all([
@@ -135,18 +137,6 @@ export class TransactionController {
             await this.databaseService.rollback();
         }
     }
-
-    // @Get('/bank')
-    // @ValidateRequest({
-    //     useTrim: true
-    // })
-    // @UseAuth(UserAuthenticationMiddleware)
-    // public async getBanks(@Req() request): Promise<{ banks: BankAccount[] }> {
-    //     const banks = await this.manager.find(BankAccount);
-    //     return {
-    //         banks: banks,
-    //     }
-    // }
 
     @Get('/merchants')
     @ValidateRequest({
@@ -168,7 +158,7 @@ export class TransactionController {
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transferBank(@Req() request): Promise<{ user: User, transaction: Transaction }> {      
+    public async transferBank(@Req() request): Promise<{ user: User, transaction: Transaction }> {
         try {
             const body = {
                 bank_id: request.body.bank_id,
@@ -187,10 +177,11 @@ export class TransactionController {
             transaction.amount = body.amount;
             transaction.target_type = TargetType.BANK;
             transaction.user_id = user.user_id;
-            transaction.flow = FlowType.INCOMING;
+            transaction.flow = FlowType.OUTGOING;
             transaction.note = body.note;
+            transaction.wallet_type = WalletType.CASH;
 
-            user.current_balance = user.current_balance - body.amount;
+            user.balance_cash = user.balance_cash - body.amount;
 
             const results = await Promise.all([
                 this.manager.save(transaction),
@@ -202,7 +193,7 @@ export class TransactionController {
 
             let balanceHistory = new BalanceHistory();
             balanceHistory.user_id = user.user_id;
-            balanceHistory.balance = user.current_balance;
+            balanceHistory.balance = user.balance_cash;
             balanceHistory.type = BalanceType.OFO_CASH;
             await this.manager.save(balanceHistory);
 
@@ -211,7 +202,7 @@ export class TransactionController {
                 user: user,
                 transaction: transaction,
             };
-            
+
 
         } catch (error) {
             await this.databaseService.rollback();
@@ -221,6 +212,7 @@ export class TransactionController {
     @Post('/oneklik')
     @ValidateRequest({
         body: ['amount'],
+
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
@@ -233,27 +225,29 @@ export class TransactionController {
                 throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
             }
             let user: User = (<any>request).user;
-            let bank_account = '';
+            //bank account ?
+            let bank_account = '123456';
             let transaction = new Transaction();
             transaction.target_id = bank_account;
             transaction.amount = body.amount;
             transaction.flow = FlowType.INCOMING;
             transaction.target_type = TargetType.BANK;
             transaction.user_id = user.user_id;
+            transaction.wallet_type = WalletType.CASH;
 
-            user.current_balance = user.current_balance + body.amount;
+            user.balance_cash = user.balance_cash + body.amount;
 
             const results = await Promise.all([
                 this.manager.save(transaction),
                 this.manager.save(user),
             ])
-            
+
             transaction = results[0];
             user = results[1];
 
             let balanceHistory = new BalanceHistory();
             balanceHistory.user_id = user.user_id;
-            balanceHistory.balance = user.current_balance;
+            balanceHistory.balance = user.balance_cash;
             balanceHistory.type = BalanceType.OFO_CASH;
             balanceHistory = await this.manager.save(balanceHistory);
 
@@ -267,10 +261,82 @@ export class TransactionController {
         }
     }
 
-    // @Post('/payment/pln/prepaid')
-    // @ValidateRequest({
-    //     body: ['amount'],
-    //     useTrim: true
-    // })
+    @Post('/payment/pln/prepaid')
+    @ValidateRequest({
+        body: ['meter_number', 'amount', 'balance_type', 'fee'],
+        useTrim: true
+    })
+    public async prepaidPln(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+        try {
+
+            //fee ?
+            const body = {
+                meter_number: request.body.meter_number,
+                amount: parseInt(request.body.amount),
+                balance_type: request.body.balance_type,
+                fee: request.body.fee,
+            }
+            const numericRegExp = new RegExp(/^[0-9]+$/);
+            if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
+                throw new BadRequest('Input valid meter number')
+            }
+            if (body.amount <= 0) {
+                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
+            }
+            let user: User = (<any>request).user;
+            if (body.balance_type == WalletType.CASH && user.balance_cash < body.amount) {
+                throw new BadRequest('You have insufficient OFO Cash');
+            }
+            else if (body.balance_type == WalletType.POINT && user.balance_point < body.amount) {
+                throw new BadRequest('You have insufficient OFO POINT');
+            }
+
+            let transaction = new Transaction();
+            transaction.target_id = body.meter_number;
+            transaction.amount = body.amount;
+            transaction.flow = FlowType.OUTGOING;
+            transaction.target_type = TargetType.PAYMENT;
+            transaction.user_id = user.user_id;
+            transaction.wallet_type = body.balance_type;
+            transaction.fee = body.fee;
+            
+            const total = body.amount + body.fee;
+            if (body.balance_type == WalletType.CASH){
+                user.balance_cash = user.balance_cash - total
+            } 
+            else if (body.balance_type == WalletType.POINT) {
+                user.balance_point = user.balance_point - total
+            }
+
+            const results = await Promise.all([
+                this.manager.save(transaction),
+                this.manager.save(user),
+            ])
+
+            transaction = results[0];
+            user = results[1];
+
+            let balanceHistory = new BalanceHistory();
+            balanceHistory.user_id = user.user_id;
+            if (body.balance_type == WalletType.CASH){
+                balanceHistory.balance = user.balance_cash;
+                balanceHistory.type = BalanceType.OFO_CASH;
+            } else if (body.balance_type == WalletType.POINT) {
+                balanceHistory.balance = user.balance_point;
+                balanceHistory.type = BalanceType.OFO_POINT;
+            }
+            await this.manager.save(balanceHistory);
+
+            await this.databaseService.commit();
+            return {
+                user: user,
+                transaction: transaction,
+            };
+            
+        } catch (error) {
+            await this.databaseService.rollback();
+        }
+    }
+
 
 }
