@@ -28,7 +28,7 @@ export class TransactionController {
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transactionHistory(@Req() request): Promise<{ transaction: Transaction[] }> {
+    public async fetchTransactionHistories(@Req() request): Promise<{ transaction: Transaction[] }> {
         const user: User = (<any>request).user;
         const transaction = await this.manager.find(Transaction, {
             user_id: user.user_id
@@ -44,7 +44,7 @@ export class TransactionController {
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async addTransferUser(@Req() request: Req): Promise<{ user: User, transaction: Transaction }> {
+    public async transferToUser(@Req() request: Req): Promise<{ user: User, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -159,7 +159,7 @@ export class TransactionController {
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transferBank(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async requestBankTransfer(@Req() request): Promise<{ user: User, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -211,15 +211,14 @@ export class TransactionController {
 
     @Post('/transfer/bank/confirm')
     @ValidateRequest({
-        body: ['bank_id, account, amount'],
+        body: ['account, amount'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transferBankConfirm(@Req() request): Promise<{ bankAccount: BankAccount, transaction: Transaction }> {
+    public async confirmBankTransfer(@Req() request): Promise<{ bankAccount: BankAccount }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
-                bank_id: request.body.bank_id,
                 amount: parseInt(request.body.amount),
                 account: request.body.account,
                 note: request.body.note,
@@ -232,41 +231,28 @@ export class TransactionController {
                 throw new BadRequest('Bank account minimal length is 9 numerical character.')
             }
 
-            let user: User = (<any>request).user;
             let bankAccount = new BankAccount();
             bankAccount.account_number = body.account;
             bankAccount.name = 'Silvia Yustika';
             bankAccount.bank = BankType.BCA;
             await this.manager.save(bankAccount);
 
-            let transaction = new Transaction ();
-            transaction.target_id = body.account;
-            transaction.amount = body.amount;
-            transaction.target_type = TargetType.BANK;
-            transaction.user_id = user.user_id;
-            transaction.flow = FlowType.OUTGOING;
-            transaction.note = body.note;
-            transaction.wallet_type = WalletType.CASH;
-
-            // ?
-
             await this.databaseService.commit();
             return {
                 bankAccount: bankAccount,
-                transaction: transaction,
             };
         } catch (error) {
             await this.databaseService.rollback();
         }
     }
 
-    @Post('/oneklik')
+    @Post('/topup/instant')
     @ValidateRequest({
         body: ['amount'],
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async topupOneklik(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async instantTopup(@Req() request): Promise<{ user: User, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -276,7 +262,7 @@ export class TransactionController {
                 throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
             }
             let user: User = (<any>request).user;
-            // ?
+            
             let bank_account = '123456';
             let transaction = new Transaction(); 
             transaction.target_id = bank_account;
@@ -317,7 +303,7 @@ export class TransactionController {
         body: ['meter_number', 'amount', 'wallet_type'],
         useTrim: true
     })
-    public async prepaidPln(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async requestPlnPrepaidPayment(@Req() request): Promise<{ user: User, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -339,8 +325,6 @@ export class TransactionController {
             else if (body.wallet_type == WalletType.POINT && user.balance_point < body.amount) {
                 throw new BadRequest('You have insufficient OFO POINT');
             }
-
-            // ?
 
             const fee = 2000;
             let transaction = new Transaction();
@@ -370,10 +354,10 @@ export class TransactionController {
 
             let balanceHistory = new BalanceHistory();
             balanceHistory.user_id = user.user_id;
-            if (body.wallet_type == WalletType.CASH){
+            if (body.wallet_type === WalletType.CASH){
                 balanceHistory.balance = user.balance_cash;
                 balanceHistory.type = BalanceType.OFO_CASH;
-            } else if (body.wallet_type == WalletType.POINT) {
+            } else if (body.wallet_type === WalletType.POINT) {
                 balanceHistory.balance = user.balance_point;
                 balanceHistory.type = BalanceType.OFO_POINT;
             }
@@ -395,7 +379,7 @@ export class TransactionController {
         body: ['meter_number', 'amount', 'wallet_type'],
         useTrim: true
     })
-    public async prepaidPlnConfirm(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
+    public async confirmPlnPrepaidPayment(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -455,7 +439,7 @@ export class TransactionController {
         body: ['meter_number', 'wallet_type'],
         useTrim: true
     })
-    public async postpaidPlnConfirm(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
+    public async confirmPlnPostpaidPayment(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -503,7 +487,7 @@ export class TransactionController {
         body: ['meter_number', 'wallet_type'],
         useTrim: true
     })
-    public async postpaidPln(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async requestPlnPostpaidPayment(@Req() request): Promise<{ user: User, transaction: Transaction }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
