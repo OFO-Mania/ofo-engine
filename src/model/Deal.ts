@@ -10,13 +10,21 @@ export class Deal {
     @Default(uuid.v1())
     deal_id: string = uuid.v1();
 
+    @Column({ length: 36 })
+    @Required()
+    merchant_id: string;
+
     @Column({ length: 255 })
+    @Required()
+    name: string;
+
+    @Column({ length: 1024 })
     @Required()
     description: string;
 
-    @Column()
+    @Column({ length: 1024 })
     @Required()
-    amount: number;
+    terms: string;
 
     @Column({ length: 255 })
     @Required()
@@ -38,7 +46,4 @@ export class Deal {
     @Property()
     updated_at: Date;
 
-    @Column({ length: 1024 })
-    @Required()
-    service_id: string;
 }
