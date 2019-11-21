@@ -263,9 +263,14 @@ export class TransactionController {
             }
             let user: User = (<any>request).user;
             
-            let bank_account = '123456';
+            let bankAccount = new BankAccount();
+            bankAccount.account_number = '1997070707';
+            bankAccount.name = user.full_name;
+            bankAccount.bank = BankType.BCA;
+            await this.manager.save(bankAccount);
+
             let transaction = new Transaction(); 
-            transaction.target_id = bank_account;
+            transaction.target_id = bankAccount.account_number;
             transaction.amount = body.amount;
             transaction.flow = FlowType.INCOMING;
             transaction.target_type = TargetType.BANK;
@@ -319,10 +324,13 @@ export class TransactionController {
                 throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
             }
             let user: User = (<any>request).user;
-            if (body.wallet_type == WalletType.CASH && user.balance_cash < body.amount) {
+            if (body.wallet_type !== WalletType.CASH || body.wallet_type !== WalletType.CASH ){
+                throw new BadRequest('Wallet Type Undefined');
+            }
+            if (body.wallet_type === WalletType.CASH && user.balance_cash < body.amount) {
                 throw new BadRequest('You have insufficient OFO Cash');
             }
-            else if (body.wallet_type == WalletType.POINT && user.balance_point < body.amount) {
+            else if (body.wallet_type === WalletType.POINT && user.balance_point < body.amount) {
                 throw new BadRequest('You have insufficient OFO POINT');
             }
 
@@ -337,10 +345,11 @@ export class TransactionController {
             transaction.fee = fee;
             
             const total = body.amount + fee;
-            if (body.wallet_type == WalletType.CASH){
+            
+            if (body.wallet_type === WalletType.CASH){
                 user.balance_cash = user.balance_cash - total
             } 
-            else if (body.wallet_type == WalletType.POINT) {
+            else if (body.wallet_type === WalletType.POINT) {
                 user.balance_point = user.balance_point - total
             }
 
@@ -376,57 +385,29 @@ export class TransactionController {
 
     @Post('/payment/pln/prepaid/confirm')
     @ValidateRequest({
-        body: ['meter_number', 'amount', 'wallet_type'],
+        body: ['meter_number'],
         useTrim: true
     })
-    public async confirmPlnPrepaidPayment(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
+    public async confirmPlnPrepaidPayment(@Req() request): Promise<{ payment: Payment}> {
         try {
             await this.databaseService.startTransaction();
             const body = {
                 meter_number: request.body.meter_number,
-                amount: parseInt(request.body.amount),
-                wallet_type: request.body.wallet_type,
             }
             const numericRegExp = new RegExp(/^[0-9]+$/);
             if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
                 throw new BadRequest('Input valid meter number')
             }
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
-            }
-            let user: User = (<any>request).user;
-            if (body.wallet_type == WalletType.CASH && user.balance_cash < body.amount) {
-                throw new BadRequest('You have insufficient OFO Cash');
-            }
-            else if (body.wallet_type == WalletType.POINT && user.balance_point < body.amount) {
-                throw new BadRequest('You have insufficient OFO POINT');
-            }
-
-            // ?
 
             let payment = new Payment();
             payment.account_number = body.meter_number;
-
-            // ?
-
             payment.details = 'PT Mentari Agung';
             payment.service = ServiceType.PLN_PREPAID;
             payment = await this.manager.save(payment);
 
-            const fee = 2000;
-            let transaction = new Transaction();
-            transaction.target_id = body.meter_number;
-            transaction.amount = body.amount;
-            transaction.flow = FlowType.OUTGOING;
-            transaction.target_type = TargetType.PAYMENT;
-            transaction.user_id = user.user_id;
-            transaction.wallet_type = body.wallet_type;
-            transaction.fee = fee;
-
             await this.databaseService.commit();
             return {
                 payment: payment,
-                transaction: transaction,
             };
 
         } catch (error) {
@@ -439,7 +420,7 @@ export class TransactionController {
         body: ['meter_number', 'wallet_type'],
         useTrim: true
     })
-    public async confirmPlnPostpaidPayment(@Req() request): Promise<{ payment: Payment, transaction: Transaction }> {
+    public async confirmPlnPostpaidPayment(@Req() request): Promise<{ payment: Payment }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -450,32 +431,15 @@ export class TransactionController {
             if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
                 throw new BadRequest('Input valid meter number')
             }
-            let user: User = (<any>request).user;
-
             let payment = new Payment();
             payment.account_number = body.meter_number;
-
-            // ?
-
             payment.details = 'PT Mentari Agung';
             payment.service = ServiceType.PLN_POSTPAID;
             payment = await this.manager.save(payment);
-            // ?
-            let amount = 30000; 
-            const fee = 2000;
-            let transaction = new Transaction();
-            transaction.target_id = body.meter_number;
-            transaction.amount = amount;
-            transaction.flow = FlowType.OUTGOING;
-            transaction.target_type = TargetType.PAYMENT;
-            transaction.user_id = user.user_id;
-            transaction.wallet_type = body.wallet_type;
-            transaction.fee = fee;
 
             await this.databaseService.commit();
             return {
                 payment: payment,
-                transaction: transaction,
             };
         } catch (error) {
             await this.databaseService.rollback();
@@ -499,18 +463,18 @@ export class TransactionController {
                 throw new BadRequest('Input valid meter number')
             }
             
-            let user: User = (<any>request).user;
-            // API ?
-
             let amount = 20000;
-            if (body.wallet_type == WalletType.CASH && user.balance_cash < amount) {
+
+            let user: User = (<any>request).user;
+            if (body.wallet_type !== WalletType.CASH || body.wallet_type !== WalletType.CASH ){
+                throw new BadRequest('Wallet Type Undefined');
+            }
+            if (body.wallet_type === WalletType.CASH && user.balance_cash < amount) {
                 throw new BadRequest('You have insufficient OFO Cash');
             }
-            else if (body.wallet_type == WalletType.POINT && user.balance_point < amount) {
+            else if (body.wallet_type === WalletType.POINT && user.balance_point < amount) {
                 throw new BadRequest('You have insufficient OFO POINT');
             }
-
-            // ?
 
             const fee = 2000;
             let transaction = new Transaction();
@@ -523,10 +487,10 @@ export class TransactionController {
             transaction.fee = fee;
             
             const total = amount + fee;
-            if (body.wallet_type == WalletType.CASH){
+            if (body.wallet_type === WalletType.CASH){
                 user.balance_cash = user.balance_cash - total
             } 
-            else if (body.wallet_type == WalletType.POINT) {
+            else if (body.wallet_type === WalletType.POINT) {
                 user.balance_point = user.balance_point - total
             }
 
@@ -540,10 +504,10 @@ export class TransactionController {
 
             let balanceHistory = new BalanceHistory();
             balanceHistory.user_id = user.user_id;
-            if (body.wallet_type == WalletType.CASH){
+            if (body.wallet_type === WalletType.CASH){
                 balanceHistory.balance = user.balance_cash;
                 balanceHistory.type = BalanceType.OFO_CASH;
-            } else if (body.wallet_type == WalletType.POINT) {
+            } else if (body.wallet_type === WalletType.POINT) {
                 balanceHistory.balance = user.balance_point;
                 balanceHistory.type = BalanceType.OFO_POINT;
             }
