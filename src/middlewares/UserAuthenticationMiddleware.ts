@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { EndpointInfo, IMiddleware, Middleware, Req, Res } from '@tsed/common';
+import { IMiddleware, Middleware, Req, Res } from '@tsed/common';
 import { BadRequest, Forbidden, Unauthorized } from 'ts-httpexceptions';
 import jwt from 'jsonwebtoken';
 import { PassportConfig } from '../config/passport.config';
