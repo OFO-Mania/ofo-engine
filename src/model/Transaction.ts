@@ -10,25 +10,22 @@ export class Transaction {
     @Default(uuid.v1())
     transaction_id: string = uuid.v1();
 
-    @Column()
-    @Required()
-    amount: number;
-
-    @Column({ length: 255 })
-    @Required()
-    target_type: TargetType;
-
     @Column({ length: 36 })
     @Required()
     user_id: string;
 
-    @CreateDateColumn({ type: 'timestamp' })
-    @Property()
-    created_at: Date;
+    @Column()
+    @Required()
+    amount: number;
 
-    @UpdateDateColumn({ type: 'timestamp' })
-    @Property()
-    updated_at: Date;
+    @Column()
+    @Required()
+    @Default(0)
+    fee: number = 0;
+
+    @Column({ length: 255 })
+    @Required()
+    target_type: TargetType;
 
     @Column({ length: 255 })
     @Required()
@@ -39,16 +36,24 @@ export class Transaction {
     flow: FlowType;
     
     @Column({ length: 20})
-	note: string;
+    note: string;
+    
+    @CreateDateColumn({ type: 'timestamp' })
+    @Property()
+    created_at: Date;
+
+    @UpdateDateColumn({ type: 'timestamp' })
+    @Property()
+    updated_at: Date;
 }
 
 export enum FlowType {
-    IN_GOING='IN_GOING',
-    OUT_GOING='OUT_GOING',
+    INCOMING='INCOMING',
+    OUTGOING='OUTGOING',
 }
 
 export enum TargetType {
     USER='USER',
     BANK='BANK',
-    SERVICE='SERVICE',
+    PAYMENT='PAYMENT',
 }
