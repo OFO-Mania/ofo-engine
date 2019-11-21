@@ -15,6 +15,10 @@ export class BankAccount {
 	name: string;
 
     @Column({ length: 255 })
+    @Required()
+    account_number: string;
+
+    @Column({ length: 255 })
 	@Required()
 	bank: BankType;
 
