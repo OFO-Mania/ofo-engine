@@ -10,21 +10,17 @@ export class Transaction {
     @Default(uuid.v1())
     transaction_id: string = uuid.v1();
 
-    @Column({ length: 30 })
+    @Column()
     @Required()
     amount: number;
 
     @Column({ length: 255 })
     @Required()
-    type: string;
+    target_type: TargetType;
 
     @Column({ length: 36 })
     @Required()
     user_id: string;
-
-    @Column({ length: 36 })
-    @Required()
-    service_id: string;
 
     @CreateDateColumn({ type: 'timestamp' })
     @Property()
@@ -34,7 +30,25 @@ export class Transaction {
     @Property()
     updated_at: Date;
 
-    @Column({ length: 36 })
-	deal_id: string;
+    @Column({ length: 255 })
+    @Required()
+	target_id: string;
 
+    @Column({ length: 36 })
+    @Required()
+    flow: FlowType;
+    
+    @Column({ length: 20})
+	note: string;
+}
+
+export enum FlowType {
+    IN_GOING='IN_GOING',
+    OUT_GOING='OUT_GOING',
+}
+
+export enum TargetType {
+    USER='USER',
+    BANK='BANK',
+    SERVICE='SERVICE',
 }

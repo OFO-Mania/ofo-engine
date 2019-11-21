@@ -13,28 +13,12 @@
  * limitations under the License.
  */
 
-import { Default, IgnoreProperty, Property, Required, } from '@tsed/common';
-import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
-import uuid from 'uuid';
+require('dotenv').config();
 
-@Entity()
-@Unique(['service_id'])
-export class Service {
-
-	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	service_id: string = uuid.v1();
-
-	@Column({ length: 255 })
-	@Required()
-	serviceprovider_id: string;
-
-	@CreateDateColumn({ type: 'timestamp' })
-	@Property()
-	created_at: Date;
-
-	@UpdateDateColumn({ type: 'timestamp' })
-	@Property()
-	updated_at: Date;
-
-}
+export const MessagingConfig = {
+	twilio: {
+		accountServiceID: process.env.TWILIO_ACCOUNT_SERVICE_ID,
+		authToken: process.env.TWILIO_AUTH_TOKEN,
+		messagingServiceID: process.env.TWILIO_MESSAGING_SERVICE_ID
+	}
+};

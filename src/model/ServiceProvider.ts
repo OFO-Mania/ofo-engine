@@ -17,62 +17,17 @@ import { Default, IgnoreProperty, Property, Required, } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
 import uuid from 'uuid';
 
-export enum UserType {
-    MERCHANT = 'MERCHANT',
-    USER = 'USER',
-}
-
 @Entity()
-@Unique(['user_id'])
-export class User {
+@Unique(['serviceprovider_id'])
+export class ServiceProvider {
 
 	@PrimaryColumn({ length: 36 })
 	@Default(uuid.v1())
-	user_id: string = uuid.v1();
+	serviceprovider_id: string = uuid.v1();
 
 	@Column({ length: 255 })
 	@Required()
-	full_name: string;
-
-	@Column({ length: 15 })
-	@Required()
-	phone_number: string;
-
-	@Column({ length: 255 })
-	@Required()
-	email_address: string;
-
-	@Column({ length: 255, nullable: true })
-	referral_code: string;
-
-	@Column()
-	@Required()
-	@Default(false)
-	has_security_code: boolean = false;
-
-	@Column({ length: 255 })
-	@Required()
-	@Default('')
-	@IgnoreProperty()
-	security_code: string = '';
-
-	@Column()
-	@Required()
-	@Default(false)
-	is_verified: boolean = false;
-
-	@Column({ length: 255, nullable: true })
-	image: string;
-
-	@Column({ length: 255 })
-	@Required()
-	@Default(UserType.USER)
-	type: UserType = UserType.USER;
-
-	@Column()
-	@Required()
-	@Default(0)
-	current_balance: number = 0;
+	name: string;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

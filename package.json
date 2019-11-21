@@ -46,6 +46,7 @@
 		"redis": "^2.8.0",
 		"swagger-schema-official": "^2.0.0-bab6bed",
 		"ts-httpexceptions": "^4.1.0",
+		"twilio": "^3.37.1",
 		"typeorm": "^0.2.20",
 		"uuid": "^3.3.3"
 	},

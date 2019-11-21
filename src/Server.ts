@@ -23,7 +23,7 @@ import '@tsed/multipartfiles';
 import fs from 'fs';
 import Path from 'path';
 import { ejs } from 'consolidate';
-import Sentry from '@sentry/node';
+import * as Sentry from '@sentry/node';
 import helmet from 'helmet';
 import cors from 'cors';
 import compress from 'compression';

@@ -3,7 +3,7 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColu
 import uuid from 'uuid';
 
 @Entity()
-@Unique(['admin_id'])
+@Unique(['administrator_id'])
 @Unique(['email_address'])
 export class Administrator {
 
@@ -23,6 +23,11 @@ export class Administrator {
 	@Required()
 	@IgnoreProperty()
     password: string;
+
+	@Column()
+	@Required()
+	@Default(false)
+	is_verified: boolean = false;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
