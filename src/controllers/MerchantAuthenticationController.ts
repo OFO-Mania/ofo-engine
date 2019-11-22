@@ -88,6 +88,9 @@ export class MerchantAuthenticationController {
 					await this.manager.remove(user);
 				}
 			}
+			if (body.phone_number.length < 10) {
+				throw new BadRequest('Phone number should be minimum of 10 digit.');
+			}
 			if (body.phone_number.startsWith('0')) {
 				body.phone_number = '62'.concat(body.phone_number.substring(1));
 			}

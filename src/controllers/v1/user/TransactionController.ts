@@ -100,7 +100,7 @@ export class TransactionController {
         }
         receiver.full_name = receiver.full_name.split(' ').map(nameByWord => (
             nameByWord.split('').map((char, index) => (
-                index === 1 || index === 2 || index === nameByWord.length - 1
+                index === 0 || index === 1 || index === nameByWord.length - 1
                     ? char : '*'
             )).join('')
         )).join(' ');
