@@ -63,7 +63,7 @@ export class TransactionController {
     }
 
     private static generateRandomBoolean(): boolean {
-        return Math.ceil(Math.random() * 10) > 0.5;
+        return Math.random() >= 0.5;
     }
 
     @Get('/history')
@@ -472,9 +472,13 @@ export class TransactionController {
             }, {
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
             });
+            const { data } = response.data;
+            if (data.status === 2) {
+                throw new BadRequest(data.message);
+            }
             let payment = new Payment();
             payment.account_number = meter_number;
-            payment.details = JSON.stringify(response.data);
+            payment.details = JSON.stringify(data);
             payment.service = ServiceType.PLN_PREPAID;
             payment = await this.manager.save(payment);
 
