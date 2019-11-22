@@ -251,7 +251,7 @@ export class TransactionController {
 
     @Post('/transfer/bank/confirm')
     @ValidateRequest({
-        body: ['bank_account_id', 'amount', 'note'],
+        body: ['bank_account_id', 'amount'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
