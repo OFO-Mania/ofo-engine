@@ -23,7 +23,7 @@ export enum WalletType {
 }
 
 @Entity()
-@Unique(['balance_history_id'])
+@Unique(['wallet_history_id'])
 export class WalletHistory {
 
     @PrimaryColumn({ length: 36 })
