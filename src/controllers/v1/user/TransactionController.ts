@@ -76,13 +76,44 @@ export class TransactionController {
         return { transactions };
     }
 
-    @Post('/transfer/user')
+    @Post('/transfer/user/inquiry')
+    @ValidateRequest({
+        body: ['phone_number'],
+        useTrim: true
+    })
+    @UseAuth(UserAuthenticationMiddleware)
+    public async inquiryTransferToUser(@Req() request: Req): Promise<{ target: User }> {
+        const body = {
+            phone_number: request.body.phone_number,
+        };
+        if (body.phone_number.startsWith('0')) {
+            body.phone_number = '62'.concat(body.phone_number.substring(1));
+        }
+        if (body.phone_number.startsWith('62')) {
+            body.phone_number = '+'.concat(body.phone_number);
+        }
+        let receiver = await this.manager.findOne(User, {
+            phone_number: body.phone_number,
+        });
+        if (typeof receiver === 'undefined') {
+            throw new BadRequest(`Receiver phone number ${body.phone_number} is not a registered user.`);
+        }
+        receiver.full_name = receiver.full_name.split(' ').map(nameByWord => (
+            nameByWord.split('').map((char, index) => (
+                index === 1 || index === 2 || index === nameByWord.length - 1
+                    ? char : '*'
+            )).join('')
+        )).join(' ');
+        return { target: receiver }
+    }
+
+    @Post('/transfer/user/confirm')
     @ValidateRequest({
         body: ['phone_number', 'amount'],
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transferToUser(@Req() request: Req): Promise<{
+    public async confirmTransferToUser(@Req() request: Req): Promise<{
         user: User,
         transaction: Transaction
         target: User
@@ -166,12 +197,6 @@ export class TransactionController {
                 this.manager.save(receiverWalletHistory),
             ]);
             await this.databaseService.commit();
-            receiver.full_name = receiver.full_name.split(' ').map(nameByWord => (
-                nameByWord.split('').map((char, index) => (
-                    index === 1 || index === 2 || index === nameByWord.length - 1
-                        ? char : '*'
-                )).join('')
-            )).join(' ');
             const promises = [];
             for (const device of receiverDevices) {
                 promises.push(this.pushNotificationService.sendNotification({
@@ -365,15 +390,15 @@ export class TransactionController {
         }
     }
 
-    @Post('/payment/pln/prepaid/inquery')
+    @Post('/payment/pln/prepaid/inquiry')
     @ValidateRequest({
         body: ['meter_number'],
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async inqueryPlnPrepaidPayment(
+    public async inquiryPlnPrepaidPayment(
         @BodyParams('meter_number') meter_number: string
-    ): Promise<PLNPrepaidInqueryResponse> {
+    ): Promise<PLNPrepaidInquiryResponse> {
         const numericRegExp = new RegExp(/^[0-9]+$/);
         if (meter_number.length < 9 || !numericRegExp.test(meter_number)) {
             throw new BadRequest('Valid meter number should be minimal 9 numerical character.');
@@ -484,16 +509,16 @@ export class TransactionController {
         }
     }
 
-    @Post('/payment/pln/postpaid/inquery')
+    @Post('/payment/pln/postpaid/inquiry')
     @ValidateRequest({
         body: ['customer_id'],
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async inqueryPlnPostpaidPayment(
+    public async inquiryPlnPostpaidPayment(
         @BodyParams('customer_id') customer_id: string,
         @Req() request: Req
-    ): Promise<PLNPostpaidInqueryResponse> {
+    ): Promise<PLNPostpaidInquiryResponse> {
         const numericRegExp = new RegExp(/^[0-9]+$/);
         if (customer_id.length < 9 || !numericRegExp.test(customer_id)) {
             throw new BadRequest('Valid customer ID should be minimal 9 numerical character.');
@@ -653,7 +678,7 @@ type PLNPostpaidSubscriptionData = {
     meta: []
 };
 
-type PLNPrepaidInqueryResponse = {
+type PLNPrepaidInquiryResponse = {
     customer_id: string,
     meter_number: string,
     subscriber_id: string,
@@ -662,7 +687,7 @@ type PLNPrepaidInqueryResponse = {
 };
 
 
-type PLNPostpaidInqueryResponse = {
+type PLNPostpaidInquiryResponse = {
     customer_id: string,
     meter_number: string,
     subscriber_id: string,
