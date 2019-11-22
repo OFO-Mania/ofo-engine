@@ -216,13 +216,13 @@ export class TransactionController {
         }
     }
 
-    @Post('/transfer/bank')
+    @Post('/transfer/bank/inquery')
     @ValidateRequest({
         body: ['bank', 'account_number', 'amount'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async requestBankTransfer(@Req() request): Promise<{ bankAccount: BankAccount }> {
+    public async inquiryBankTransfer(@Req() request): Promise<{ bankAccount: BankAccount }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -410,6 +410,9 @@ export class TransactionController {
             sign     : MobilePulsaConfig.generateSignature(meter_number)
         });
         const { data } = response.data;
+        if (data.status === 2) {
+            throw new BadRequest(data.message);
+        }
         return {
             customer_id: data.hp,
             meter_number: data.meter_no,
@@ -514,7 +517,7 @@ export class TransactionController {
         body: ['customer_id'],
         useTrim: true
     })
-    @UseAuth(UserAuthenticationMiddleware)
+    // @UseAuth(UserAuthenticationMiddleware)
     public async inquiryPlnPostpaidPayment(
         @BodyParams('customer_id') customer_id: string,
         @Req() request: Req
@@ -524,18 +527,20 @@ export class TransactionController {
             throw new BadRequest('Valid customer ID should be minimal 9 numerical character.');
         }
         const reference_id = uuid.v1();
-        const response = await axios.post<PLNPostpaidSubscriptionData>('https://testprepaid.mobilepulsa.net/v1/legacy/index', {
-            commands: "inq-pasca",
+        const response = await axios.post<PLNPostpaidSubscriptionData>('https://testpostpaid.mobilepulsa.net/api/v1/bill/check', {
+            commands: 'inq-pasca',
             username: MobilePulsaConfig.username,
-            code: "PLNPOSTPAID",
+            code: 'PLNPOSTPAID',
             hp: customer_id,
             ref_id: reference_id,
             sign: MobilePulsaConfig.generateSignature(reference_id)
+        }, {
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
         });
         const { data } = response.data;
         return {
             customer_id: data.hp,
-            meter_number: data.tr_id.toString(),
+            meter_number: 'data.tr_id',
             subscriber_id: customer_id,
             full_name: data.tr_name,
             segment_power: data.desc.tarif + '/' + data.desc.daya,
@@ -646,6 +651,7 @@ type PLNPrepaidSubscriptionData = {
 
 type PLNPostpaidSubscriptionData = {
     data: {
+        status: number,
         tr_id: number,
         code: string,
         hp: string,
