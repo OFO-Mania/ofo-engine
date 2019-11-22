@@ -20,6 +20,24 @@ import { BadRequest } from 'ts-httpexceptions';
 export function ValidateRequest(requirements: RequestRequirements): Function {
 	return applyDecorators(
 		UseBefore((request: Req, response: Res, next: Next) => {
+			if (requirements.useTrim === true) {
+				for (const field in request.query) {
+					if (
+						request.query.hasOwnProperty(field) &&
+						typeof request.query[field].trim === 'function'
+					) {
+						request.query[field] = request.query[field].trim();
+					}
+				}
+				for (const field in request.body) {
+					if (
+						request.body.hasOwnProperty(field) &&
+						typeof request.body[field].trim === 'function'
+					) {
+						request.body[field] = request.body[field].trim();
+					}
+				}
+			}
 			if (Array.isArray(requirements.query)) {
 				for (const field of requirements.query) {
 					if (typeof request.query[field] === 'undefined' || request.query[field] === null || request.query[field] === '') {
@@ -50,24 +68,6 @@ export function ValidateRequest(requirements: RequestRequirements): Function {
 				for (const field of requirements.files) {
 					if (!files[field]) {
 						throw new BadRequest('Required file "' + field + '" is not satisfied.');
-					}
-				}
-			}
-			if (requirements.useTrim === true) {
-				for (const field in request.query) {
-					if (
-						request.query.hasOwnProperty(field) &&
-						typeof request.query[field].trim === 'function'
-					) {
-						request.query[field] = request.query[field].trim();
-					}
-				}
-				for (const field in request.body) {
-					if (
-						request.body.hasOwnProperty(field) &&
-						typeof request.body[field].trim === 'function'
-					) {
-						request.body[field] = request.body[field].trim();
 					}
 				}
 			}
