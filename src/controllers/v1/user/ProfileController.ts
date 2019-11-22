@@ -50,7 +50,7 @@ export class ProfileController {
 		file: 'image'
 	})
 	@UseAuth(UserAuthenticationMiddleware)
-	public async modifyProfile(@MultipartFile('image') file: Express.Multer.File, @Req() request: Req): Promise<{ user: User }> {
+	public async modifyProfile(@MultipartFile('image') file: Express.Multer.File, @Req() request: Req): Promise<any> {
 		try {
 			await this.databaseService.startTransaction();
 			const allowedImageFileExts = ['png', 'jpg', 'jpeg', 'gif'];
@@ -79,7 +79,8 @@ export class ProfileController {
 			user.image = `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}`;
 			user = await this.manager.save(user);
 			await this.databaseService.commit();
-			return { user: { ...user, image: `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}` } };
+			const { security_code, ...payload } = user;
+			return { user: { ...payload, image: `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}` } };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
