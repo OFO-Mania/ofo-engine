@@ -110,6 +110,9 @@ export class TransactionController {
             const receiverDevices = await this.manager.find(Device, {
                 user_id: receiver.user_id
             });
+            if (isNaN(body.amount)) {
+                throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
+            }
             if (body.amount < 1000) {
                 throw new BadRequest('Amount should be more than Rp 1.000. Given: ' + body.amount + '.');
             }
@@ -208,6 +211,9 @@ export class TransactionController {
             if (body.account_number.length < 5 || !numericRegExp.test(body.account_number)) {
                 throw new BadRequest('Account number should be minimal 5 numerical character.')
             }
+            if (isNaN(body.amount)) {
+                throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
+            }
             if (body.amount < 10000) {
                 throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
             }
@@ -247,6 +253,9 @@ export class TransactionController {
                 note: request.body.note,
             };
             let user: User = (<any>request).user;
+            if (isNaN(body.amount)) {
+                throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
+            }
             if (body.amount < 10000) {
                 throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
             }
@@ -303,6 +312,9 @@ export class TransactionController {
             const body = {
                 amount: parseInt(request.body.amount),
             };
+            if (isNaN(body.amount)) {
+                throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
+            }
             if (body.amount <= 10000) {
                 throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
             }
@@ -400,6 +412,10 @@ export class TransactionController {
             const numericRegExp = new RegExp(/^[0-9]+$/);
             if (meter_number.length < 9 || !numericRegExp.test(meter_number)) {
                 throw new BadRequest('Valid meter number should be minimal 9 numerical character.');
+            }
+            amount = parseInt(<string><unknown>amount);
+            if (isNaN(amount)) {
+                throw new BadRequest('Amount should be numeric. Given: ' + amount + '.');
             }
             if (amount <= 0) {
                 throw new BadRequest('Amount should be more than 0. Given: ' + amount + '.');
