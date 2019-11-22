@@ -439,6 +439,9 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
 			}
+			if (!user.has_security_code) {
+				throw new BadRequest('Please set security code first.');
+			}
 			await this.manager.remove(oneTimeToken);
 			if (!(await argon2.verify(user.security_code, body.security_code))) {
 				throw new BadRequest(`Security code is invalid!`);
