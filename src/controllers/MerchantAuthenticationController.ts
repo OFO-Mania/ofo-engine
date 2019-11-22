@@ -19,7 +19,6 @@ import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
 import argon2 from 'argon2';
 import twilio from 'twilio';
-import SendGridMail from '@sendgrid/mail';
 import jwt from 'jsonwebtoken';
 
 import { MessagingConfig } from '../config/messaging.config';
@@ -112,6 +111,7 @@ export class MerchantAuthenticationController {
 			user.full_name = body.full_name;
 			user.phone_number = body.phone_number;
 			user.email_address = body.email_address;
+			user.type = UserType.MERCHANT;
 			user.has_security_code = true;
 			user.security_code = await argon2.hash(body.security_code);
 			user = await this.manager.save(user);
@@ -206,7 +206,7 @@ ${user.user_id}`,
 			if (body.phone_number.startsWith('62')) {
 				body.phone_number = '+'.concat(body.phone_number);
 			}
-			const user = await this.manager.findOne(User, {
+			let user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
 				type: UserType.MERCHANT
 			});
@@ -224,6 +224,8 @@ ${user.user_id}`,
 				throw new BadRequest(`The verification code you entered is invalid.`);
 			}
 			await this.manager.remove(verificationCode);
+			user.is_verified = true;
+			user = await this.manager.save(user);
 			let oneTimeToken = new OneTimeToken();
 			oneTimeToken.user_id = user.user_id;
 			oneTimeToken = await this.manager.save(oneTimeToken);
