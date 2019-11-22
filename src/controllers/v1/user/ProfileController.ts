@@ -20,10 +20,10 @@ import { Docs } from '@tsed/swagger';
 import { MultipartFile } from '@tsed/multipartfiles';
 import { EntityManager } from 'typeorm';
 
-import { ValidateRequest } from '../../decorators/ValidateRequestDecorator';
-import { UserAuthenticationMiddleware } from '../../middlewares/UserAuthenticationMiddleware';
-import { DatabaseService } from '../../services/DatabaseService';
-import { User } from '../../model/User';
+import { ValidateRequest } from '../../../decorators/ValidateRequestDecorator';
+import { UserAuthenticationMiddleware } from '../../../middlewares/UserAuthenticationMiddleware';
+import { DatabaseService } from '../../../services/DatabaseService';
+import { User } from '../../../model/User';
 import uuid from 'uuid';
 import { BadRequest } from 'ts-httpexceptions';
 

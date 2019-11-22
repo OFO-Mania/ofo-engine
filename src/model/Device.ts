@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-import { Default, IgnoreProperty, Property, Required, } from '@tsed/common';
-import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
+import { Default, Property, Required, } from '@tsed/common';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
 import uuid from 'uuid';
 
 export enum DeviceType {

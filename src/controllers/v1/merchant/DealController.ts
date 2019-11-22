@@ -43,12 +43,16 @@ export class DealController {
 
 	@Get('/deals')
 	@UseAuth(MerchantAuthenticationMiddleware)
-	public async fetchDeals(@Req() request: Req): Promise<Deal[]> {
+	public async fetchDeals(@Req() request: Req): Promise<{
+		deals: Deal[]
+	}> {
 		const merchant: User = <User> (<any>request).user;
-		// @ts-ignore
-		return this.manager.find(Deal, {
-			user_id: merchant.user_id
-		});
+		return {
+			// @ts-ignore
+			deals: await this.manager.find(Deal, {
+				user_id: merchant.user_id
+			})
+		};
 	}
 
 	@Post('/deal')
@@ -60,7 +64,7 @@ export class DealController {
 	public async createDeal(
 		@MultipartFile('image') file: Express.Multer.File,
 		@Req() request: Req
-	): Promise<Deal> {
+	): Promise<{ deal: Deal }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -104,7 +108,7 @@ export class DealController {
 				message: deal.name,
 				image: deal.image
 			});
-			return deal;
+			return { deal };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;

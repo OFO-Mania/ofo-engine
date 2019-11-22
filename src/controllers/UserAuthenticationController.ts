@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { Controller, Post, Req, Res } from '@tsed/common';
+import { Controller, Post, Req, Res, UseAuth } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
@@ -29,7 +29,8 @@ import { DatabaseService } from '../services/DatabaseService';
 import { User, UserType } from '../model/User';
 import { VerificationCode, VerificationCodeType } from '../model/VerificationCode';
 import { OneTimeToken } from '../model/OneTimeToken';
-import { DeviceType } from '../model/Device';
+import { Device, DeviceType } from '../model/Device';
+import { UserAuthenticationMiddleware } from '../middlewares/UserAuthenticationMiddleware';
 
 @Controller('/auth')
 @Docs('api-v1')
@@ -446,6 +447,44 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			const token = jwt.sign(payload, PassportConfig.jwt.secret);
 			await this.databaseService.commit();
 			return { user, token };
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+	@Post('/sign_out')
+	@ValidateRequest({
+		body: [ 'device_type', 'device_id' ],
+		useTrim: true
+	})
+	@UseAuth(UserAuthenticationMiddleware)
+	public async signOut(@Req() request: Req, @Res() response: Res): Promise<string> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				device_type: request.body.device_type,
+				device_id: request.body.device_id,
+			};
+			if (body.device_type.toUpperCase() !== DeviceType.IOS && body.device_type !== DeviceType.ANDROID.toUpperCase()) {
+				throw new BadRequest('Device type should be Android or iOS.');
+			}
+			if (body.device_id.length !== 36) {
+				throw new BadRequest('Device identifier should be 36 long UUID.');
+			}
+			const user: User = <User> (<any>request).user;
+			// @ts-ignore
+			const devices = await this.manager.find(Device, {
+				user_id: user.user_id,
+				device_id: body.device_id,
+				device_type: body.device_type
+			});
+			if (typeof devices !== 'undefined' && devices.length > 0) {
+				const promises = devices.map(d => this.manager.remove(d));
+				await Promise.all(promises);
+			}
+			await this.databaseService.commit();
+			return 'See you soon!';
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;

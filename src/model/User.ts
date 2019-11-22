@@ -72,12 +72,12 @@ export class User {
 	@Column()
 	@Required()
 	@Default(0)
-	balance_cash: number = 0;
+	current_cash: number = 0;
 
 	@Column()
 	@Required()
 	@Default(0)
-	balance_point: number = 0;
+	current_point: number = 0;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

@@ -1,6 +1,33 @@
-import { Default, IgnoreProperty, Property, Required, } from '@tsed/common';
-import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
+/**
+ * Copyright 2019, The OFO Mania Team.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import uuid from 'uuid';
+import { Default, Property, Required, } from '@tsed/common';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
+import { WalletType } from './WalletHistory';
+
+export enum FlowType {
+    INCOMING='INCOMING',
+    OUTGOING='OUTGOING',
+}
+
+export enum TargetType {
+    USER='USER',
+    BANK='BANK',
+    PAYMENT='PAYMENT',
+}
 
 @Entity()
 @Unique(['transaction_id'])
@@ -25,11 +52,11 @@ export class Transaction {
 
     @Column({ length: 255 })
     @Required()
-    target_type: TargetType;
+    wallet_type: WalletType;
 
     @Column({ length: 255 })
     @Required()
-    wallet_type: WalletType;
+    target_type: TargetType;
 
     @Column({ length: 255 })
     @Required()
@@ -38,31 +65,13 @@ export class Transaction {
     @Column({ length: 36 })
     @Required()
     flow: FlowType;
-    
-    @Column({ length: 20})
-    note: string;
-    
+
+    @Column({ length: 20 })
+    @Default('')
+    note: string = '';
+
     @CreateDateColumn({ type: 'timestamp' })
     @Property()
     created_at: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
-    @Property()
-    updated_at: Date;
-}
-
-export enum FlowType {
-    INCOMING='INCOMING',
-    OUTGOING='OUTGOING',
-}
-
-export enum TargetType {
-    USER='USER',
-    BANK='BANK',
-    PAYMENT='PAYMENT',
-}
-
-export enum WalletType {
-    CASH='CASH',
-    POINT='POINT',
 }

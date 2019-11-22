@@ -14,51 +14,35 @@
  */
 
 import { Default, Property, Required, } from '@tsed/common';
-import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
 import uuid from 'uuid';
 
+export enum WalletType {
+    CASH='CASH',
+    POINT='POINT',
+}
+
 @Entity()
-@Unique(['deal_id'])
-export class Deal {
+@Unique(['balance_history_id'])
+export class WalletHistory {
 
     @PrimaryColumn({ length: 36 })
     @Default(uuid.v1())
-    deal_id: string = uuid.v1();
+    wallet_history_id: string = uuid.v1();
 
     @Column({ length: 36 })
     @Required()
-    merchant_id: string;
+    user_id: string;
 
     @Column({ length: 255 })
     @Required()
-    name: string;
+    type: WalletType;
 
-    @Column({ length: 1024 })
+    @Column()
     @Required()
-    description: string;
-
-    @Column({ length: 1024 })
-    @Required()
-    terms: string;
-
-    @Column({ length: 255 })
-    @Required()
-    image: string;
-
-    @Column({ type: 'timestamp' })
-    @Required()
-    start_at : Date;
-
-    @Column({ type: 'timestamp' })
-    @Required()
-    end_at : Date;
+    balance: number;
 
     @CreateDateColumn({ type: 'timestamp' })
     @Property()
     created_at: Date;
-
-    @UpdateDateColumn({ type: 'timestamp' })
-    @Property()
-    updated_at: Date;
-
 }

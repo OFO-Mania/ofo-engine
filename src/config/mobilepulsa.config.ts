@@ -1,5 +1,7 @@
+import crypto from "crypto";
+
 /**
- * Copyright 2019, The OFO Mania Team.
+ * Copyright 2019, Danang Galuh Tegar Prasetyo & Mokhamad Mustaqim.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,25 +15,16 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
-import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
-import uuid from 'uuid';
+require('dotenv').config();
 
-@Entity()
-@Unique(['one_time_token_id'])
-export class OneTimeToken {
-
-	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	one_time_token_id: string = uuid.v1();
-
-	@Column({ length: 36 })
-	@Required()
-	user_id: string;
-
-	@CreateDateColumn({ type: 'timestamp' })
-	@Property()
-	created_at: Date;
-
-}
+export const MobilePulsaConfig = {
+	username: process.env.MOBILEPULSA_USERNAME,
+	apiKey: process.env.MOBILEPULSA_API_KEY,
+	generateSignature(reference_id: string) {
+		return crypto
+			.createHash('md5')
+			.update(this.username + this.apiKey + reference_id)
+			.digest('hex')
+	}
+};
 

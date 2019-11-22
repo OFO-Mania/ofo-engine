@@ -1,41 +1,79 @@
-import { Controller, Get, Post, Req, UseAuth, AuthenticatedMiddleware } from '@tsed/common';
+/**
+ * Copyright 2019, The OFO Mania Team.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+import axios from 'axios';
+import { BodyParams, Controller, Get, Post, Req, UseAuth } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
-import { BadRequest, NotFound } from 'ts-httpexceptions';
+import { BadRequest } from 'ts-httpexceptions';
 import { EntityManager } from 'typeorm';
 
-import { DatabaseService } from '../../../services/DatabaseService';
 import { ValidateRequest } from '../../../decorators/ValidateRequestDecorator';
-import { Transaction, TargetType, FlowType, WalletType } from '../../../model/Transaction';
-import { User, UserType } from '../../../model/User';
 import { UserAuthenticationMiddleware } from '../../../middlewares/UserAuthenticationMiddleware';
-import { BalanceHistory, BalanceType } from '../../../model/BalanceHistory';
+import { DatabaseService } from '../../../services/DatabaseService';
+import { PushNotificationService } from '../../../services/PushNotificationService';
 import { BankAccount, BankType } from '../../../model/BankAccount';
 import { Payment, ServiceType } from '../../../model/Payment';
+import { FlowType, TargetType, Transaction } from '../../../model/Transaction';
+import { User } from '../../../model/User';
+import { WalletHistory, WalletType } from '../../../model/WalletHistory';
+import { MobilePulsaConfig } from '../../../config/mobilepulsa.config';
+import uuid from 'uuid';
+import { Device } from '../../../model/Device';
 
 @Controller('/transaction')
 @Docs('api-v1')
 export class TransactionController {
     private manager: EntityManager;
 
-    constructor(private databaseService: DatabaseService) { }
+    constructor(
+        private databaseService: DatabaseService,
+        private pushNotificationService: PushNotificationService
+    ) { }
 
     public $afterRoutesInit(): void {
         this.manager = this.databaseService.getManager();
     }
 
+    private static genereteRandomAccountNumber(): string {
+        const availableCharacters = '0123456789';
+        const otp = [];
+        for (let i = 0; i < 10; i++) {
+            otp.push(
+                availableCharacters.charAt(
+                    Math.floor(
+                        Math.random() * availableCharacters.length
+                    )
+                )
+            );
+        }
+        return otp.join('');
+    }
+
+    private static generateRandomBoolean(): boolean {
+        return Math.ceil(Math.random() * 10) > 0.5;
+    }
+
     @Get('/history')
-    @ValidateRequest({
-        useTrim: true
-    })
     @UseAuth(UserAuthenticationMiddleware)
-    public async fetchTransactionHistories(@Req() request): Promise<{ transaction: Transaction[] }> {
+    public async getTransactionHistory(@Req() request): Promise<{ transactions: Transaction[] }> {
         const user: User = (<any>request).user;
-        const transaction = await this.manager.find(Transaction, {
+        const transactions = await this.manager.find(Transaction, {
             user_id: user.user_id
-        })
-        return {
-            transaction: transaction
-        };
+        });
+        return { transactions };
     }
 
     @Post('/transfer/user')
@@ -44,7 +82,11 @@ export class TransactionController {
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async transferToUser(@Req() request: Req): Promise<{ user: User, transaction: Transaction }> {
+    public async transferToUser(@Req() request: Req): Promise<{
+        user: User,
+        transaction: Transaction
+        target: User
+    }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
@@ -63,15 +105,17 @@ export class TransactionController {
                 phone_number: body.phone_number,
             });
             if (typeof receiver === 'undefined') {
-                throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
+                throw new BadRequest(`Receiver phone number ${body.phone_number} is not a registered user.`);
             }
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
+            const receiverDevices = await this.manager.find(Device, {
+                user_id: receiver.user_id
+            });
+            if (body.amount < 1000) {
+                throw new BadRequest('Amount should be more than Rp 1.000. Given: ' + body.amount + '.');
             }
-            if (body.amount > sender.balance_cash) {
-                throw new BadRequest('You have insufficient OFO Cash');
+            if (body.amount > sender.current_cash) {
+                throw new BadRequest('You have insufficient OFO Cash!');
             }
-
             //add new transaction sender
             let outgoingTransaction = new Transaction();
             outgoingTransaction.target_id = receiver.user_id;
@@ -81,7 +125,6 @@ export class TransactionController {
             outgoingTransaction.flow = FlowType.OUTGOING;
             outgoingTransaction.note = body.note;
             outgoingTransaction.wallet_type = WalletType.CASH;
-
             //add new transaction receiver
             let incomingTransaction = new Transaction();
             incomingTransaction.target_id = sender.user_id;
@@ -91,119 +134,93 @@ export class TransactionController {
             incomingTransaction.flow = FlowType.INCOMING;
             incomingTransaction.note = body.note;
             incomingTransaction.wallet_type = WalletType.CASH;
-
             //update balance in sender user
-            sender.balance_cash = sender.balance_cash - body.amount;
-
+            sender.current_cash = sender.current_cash - body.amount;
             //update balance in receiver user
-            receiver.balance_cash = receiver.balance_cash + body.amount;
-
+            receiver.current_cash = receiver.current_cash + body.amount;
             const results = await Promise.all([
                 this.manager.save(outgoingTransaction),
                 this.manager.save(incomingTransaction),
                 this.manager.save(sender),
                 this.manager.save(receiver),
-            ])
-
+            ]);
             //defining new results after sending to database
             outgoingTransaction = results[0];
-            incomingTransaction = results[1];
             sender = results[2];
             receiver = results[3];
-
             //add balance history in sender user
-            let senderBalanceHistory = new BalanceHistory();
-            senderBalanceHistory.user_id = sender.user_id;
-            senderBalanceHistory.balance = sender.balance_cash;
-            senderBalanceHistory.type = BalanceType.OFO_CASH;
-
+            let senderWalletHistory = new WalletHistory();
+            senderWalletHistory.user_id = sender.user_id;
+            senderWalletHistory.balance = sender.current_cash;
+            senderWalletHistory.type = WalletType.CASH;
             //add balance history in receiver user
-            let receiverBalanceHistory = new BalanceHistory();
-            receiverBalanceHistory.user_id = receiver.user_id;
-            receiverBalanceHistory.balance = receiver.balance_cash;
-            receiverBalanceHistory.type = BalanceType.OFO_CASH;
-
+            let receiverWalletHistory = new WalletHistory();
+            receiverWalletHistory.user_id = receiver.user_id;
+            receiverWalletHistory.balance = receiver.current_cash;
+            receiverWalletHistory.type = WalletType.CASH;
             await Promise.all([
-                this.manager.save(senderBalanceHistory),
-                this.manager.save(receiverBalanceHistory),
-            ])
-
+                this.manager.save(senderWalletHistory),
+                this.manager.save(receiverWalletHistory),
+            ]);
             await this.databaseService.commit();
+            receiver.full_name = receiver.full_name.split(' ').map(nameByWord => (
+                nameByWord.split('').map((char, index) => (
+                    index === 1 || index === 2 || index === nameByWord.length - 1
+                        ? char : '*'
+                )).join('')
+            )).join(' ');
+            const promises = [];
+            for (const device of receiverDevices) {
+                promises.push(this.pushNotificationService.sendNotification({
+                    title: 'OFO Cash Received',
+                    message: `${sender.full_name} send you Rp ${body.amount}`
+                }, device.device_id))
+            }
+            await Promise.all(promises);
             return {
                 user: sender,
                 transaction: outgoingTransaction,
+                target: receiver,
             };
-
         } catch (error) {
             await this.databaseService.rollback();
         }
     }
 
-    @Get('/merchants')
-    @ValidateRequest({
-        useTrim: true
-    })
-    @UseAuth(UserAuthenticationMiddleware)
-    public async getMerchants(@Req() request): Promise<{ merchants: User[] }> {
-        const merchants = await this.manager.find(User, {
-            type: UserType.MERCHANT,
-        })
-        return {
-            merchants: merchants
-        };
-    }
-
     @Post('/transfer/bank')
     @ValidateRequest({
-        body: ['bank_id, account, amount'],
+        body: ['bank', 'account_number', 'amount'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async requestBankTransfer(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async requestBankTransfer(@Req() request): Promise<{ bankAccount: BankAccount }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
-                bank_id: request.body.bank_id,
+                bank: request.body.bank,
+                account_number: request.body.account_number,
                 amount: parseInt(request.body.amount),
-                account: request.body.account,
                 note: request.body.note,
             };
-            let user: User = (<any>request).user;
-        
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
+            const user: User = <User> (<any>request).user;
+            const numericRegExp = new RegExp(/^[0-9]+$/);
+            if (body.account_number.length < 5 || !numericRegExp.test(body.account_number)) {
+                throw new BadRequest('Account number should be minimal 5 numerical character.')
             }
-
-            let transaction = new Transaction();
-            transaction.target_id = body.account;
-            transaction.amount = body.amount;
-            transaction.target_type = TargetType.BANK;
-            transaction.user_id = user.user_id;
-            transaction.flow = FlowType.OUTGOING;
-            transaction.note = body.note;
-            transaction.wallet_type = WalletType.CASH;
-
-            user.balance_cash = user.balance_cash - body.amount;
-
-            const results = await Promise.all([
-                this.manager.save(transaction),
-                this.manager.save(user),
-            ])
-
-            transaction = results[0];
-            user = results[1];
-
-            let balanceHistory = new BalanceHistory();
-            balanceHistory.user_id = user.user_id;
-            balanceHistory.balance = user.balance_cash;
-            balanceHistory.type = BalanceType.OFO_CASH;
-            await this.manager.save(balanceHistory);
-
+            if (body.amount < 10000) {
+                throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
+            }
+            if (body.amount > user.current_cash) {
+                throw new BadRequest('You have insufficient OFO Cash!');
+            }
+            const response = await axios.get('https://randomuser.me/api/');
+            let bankAccount = new BankAccount();
+            bankAccount.account_number = body.account_number;
+            bankAccount.bank = body.bank;
+            bankAccount.name = response.data.results[0].name.first + ' ' + response.data.results[0].name.last;
+            bankAccount = await this.manager.save(bankAccount);
             await this.databaseService.commit();
-            return {
-                user: user,
-                transaction: transaction,
-            };
+            return { bankAccount };
         } catch (error) {
             await this.databaseService.rollback();
         }
@@ -211,36 +228,57 @@ export class TransactionController {
 
     @Post('/transfer/bank/confirm')
     @ValidateRequest({
-        body: ['account, amount'],
+        body: ['bank_account_id', 'amount', 'note'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async confirmBankTransfer(@Req() request): Promise<{ bankAccount: BankAccount }> {
+    public async confirmBankTransfer(@Req() request): Promise<{
+        user: User,
+        transaction: Transaction
+        target: BankAccount
+    }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
+                bank_account_id: request.body.bank_account_id,
                 amount: parseInt(request.body.amount),
-                account: request.body.account,
                 note: request.body.note,
             };
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
+            let user: User = (<any>request).user;
+            if (body.amount < 10000) {
+                throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
             }
-            const numericRegExp = new RegExp(/^[0-9]+$/);
-            if (body.account.length < 9 || !numericRegExp.test(body.account)) {
-                throw new BadRequest('Bank account minimal length is 9 numerical character.')
+            if (body.amount > user.current_cash) {
+                throw new BadRequest('You have insufficient OFO Cash!');
             }
-
-            let bankAccount = new BankAccount();
-            bankAccount.account_number = body.account;
-            bankAccount.name = 'Silvia Yustika';
-            bankAccount.bank = BankType.BCA;
-            await this.manager.save(bankAccount);
-
+            const bankAccount = await this.manager.findOne(BankAccount, {
+                bank_account_id: body.bank_account_id
+            });
+            if (typeof bankAccount === 'undefined') {
+                throw new BadRequest('There is not bank account with the given detail');
+            }
+            let transaction = new Transaction();
+            transaction.amount = body.amount;
+            transaction.flow = FlowType.OUTGOING;
+            transaction.note = body.note;
+            transaction.target_id = bankAccount.bank_account_id;
+            transaction.target_type = TargetType.BANK;
+            transaction.user_id = user.user_id;
+            transaction.wallet_type = WalletType.CASH;
+            user.current_cash = user.current_cash = body.amount;
+            const result = await Promise.all([
+                this.manager.save(transaction),
+                this.manager.save(user)
+            ]);
+            transaction = result[0];
+            user = result[1];
+            const senderWalletHistory = new WalletHistory();
+            senderWalletHistory.balance = user.current_cash;
+            senderWalletHistory.type = WalletType.CASH;
+            senderWalletHistory.user_id = user.user_id;
+            await this.manager.save(senderWalletHistory);
             await this.databaseService.commit();
-            return {
-                bankAccount: bankAccount,
-            };
+            return { user, transaction, target: bankAccount };
         } catch (error) {
             await this.databaseService.rollback();
         }
@@ -252,275 +290,358 @@ export class TransactionController {
         useTrim: true
     })
     @UseAuth(UserAuthenticationMiddleware)
-    public async instantTopup(@Req() request): Promise<{ user: User, transaction: Transaction }> {
+    public async instantTopup(@Req() request): Promise<{
+        user: User,
+        transaction: Transaction
+        target: BankAccount
+    }> {
         try {
             await this.databaseService.startTransaction();
             const body = {
                 amount: parseInt(request.body.amount),
             };
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
+            if (body.amount <= 10000) {
+                throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
+            }
+            if (!TransactionController.generateRandomBoolean()) {
+                throw new BadRequest('Your BCA account balance is not enough!');
             }
             let user: User = (<any>request).user;
-            
+
             let bankAccount = new BankAccount();
-            bankAccount.account_number = '1997070707';
+            bankAccount.account_number = TransactionController.genereteRandomAccountNumber();
             bankAccount.name = user.full_name;
             bankAccount.bank = BankType.BCA;
-            await this.manager.save(bankAccount);
+            bankAccount = await this.manager.save(bankAccount);
 
-            let transaction = new Transaction(); 
+            let transaction = new Transaction();
             transaction.target_id = bankAccount.account_number;
             transaction.amount = body.amount;
             transaction.flow = FlowType.INCOMING;
             transaction.target_type = TargetType.BANK;
             transaction.user_id = user.user_id;
             transaction.wallet_type = WalletType.CASH;
-
-            user.balance_cash = user.balance_cash + body.amount;
-
+            user.current_cash = user.current_cash + body.amount;
             const results = await Promise.all([
                 this.manager.save(transaction),
                 this.manager.save(user),
-            ])
-
+            ]);
             transaction = results[0];
             user = results[1];
 
-            let balanceHistory = new BalanceHistory();
-            balanceHistory.user_id = user.user_id;
-            balanceHistory.balance = user.balance_cash;
-            balanceHistory.type = BalanceType.OFO_CASH;
-            balanceHistory = await this.manager.save(balanceHistory);
+            const walletHistory = new WalletHistory();
+            walletHistory.user_id = user.user_id;
+            walletHistory.balance = user.current_cash;
+            walletHistory.type = WalletType.CASH;
+            await this.manager.save(walletHistory);
 
             await this.databaseService.commit();
             return {
                 user: user,
                 transaction: transaction,
+                target: bankAccount
             };
         } catch (error) {
             await this.databaseService.rollback();
         }
     }
 
-    @Post('/payment/pln/prepaid')
+    @Post('/payment/pln/prepaid/inquery')
     @ValidateRequest({
-        body: ['meter_number', 'amount', 'wallet_type'],
+        body: ['meter_number'],
         useTrim: true
     })
-    public async requestPlnPrepaidPayment(@Req() request): Promise<{ user: User, transaction: Transaction }> {
-        try {
-            await this.databaseService.startTransaction();
-            const body = {
-                meter_number: request.body.meter_number,
-                amount: parseInt(request.body.amount),
-                wallet_type: request.body.wallet_type,
-            }
-            const numericRegExp = new RegExp(/^[0-9]+$/);
-            if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
-                throw new BadRequest('Input valid meter number')
-            }
-            if (body.amount <= 0) {
-                throw new BadRequest('Amount should be more than 0. Given: ' + body.amount + '.');
-            }
-            let user: User = (<any>request).user;
-            if (body.wallet_type !== WalletType.CASH || body.wallet_type !== WalletType.CASH ){
-                throw new BadRequest('Wallet Type Undefined');
-            }
-            if (body.wallet_type === WalletType.CASH && user.balance_cash < body.amount) {
-                throw new BadRequest('You have insufficient OFO Cash');
-            }
-            else if (body.wallet_type === WalletType.POINT && user.balance_point < body.amount) {
-                throw new BadRequest('You have insufficient OFO POINT');
-            }
-
-            const fee = 2000;
-            let transaction = new Transaction();
-            transaction.target_id = body.meter_number;
-            transaction.amount = body.amount;
-            transaction.flow = FlowType.OUTGOING;
-            transaction.target_type = TargetType.PAYMENT;
-            transaction.user_id = user.user_id;
-            transaction.wallet_type = body.wallet_type;
-            transaction.fee = fee;
-            
-            const total = body.amount + fee;
-            
-            if (body.wallet_type === WalletType.CASH){
-                user.balance_cash = user.balance_cash - total
-            } 
-            else if (body.wallet_type === WalletType.POINT) {
-                user.balance_point = user.balance_point - total
-            }
-
-            const results = await Promise.all([
-                this.manager.save(transaction),
-                this.manager.save(user),
-            ])
-
-            transaction = results[0];
-            user = results[1];
-
-            let balanceHistory = new BalanceHistory();
-            balanceHistory.user_id = user.user_id;
-            if (body.wallet_type === WalletType.CASH){
-                balanceHistory.balance = user.balance_cash;
-                balanceHistory.type = BalanceType.OFO_CASH;
-            } else if (body.wallet_type === WalletType.POINT) {
-                balanceHistory.balance = user.balance_point;
-                balanceHistory.type = BalanceType.OFO_POINT;
-            }
-            await this.manager.save(balanceHistory);
-
-            await this.databaseService.commit();
-            return {
-                user: user,
-                transaction: transaction,
-            };
-
-        } catch (error) {
-            await this.databaseService.rollback();
+    @UseAuth(UserAuthenticationMiddleware)
+    public async inqueryPlnPrepaidPayment(
+        @BodyParams() meter_number: string
+    ): Promise<PLNPrepaidInqueryResponse> {
+        const numericRegExp = new RegExp(/^[0-9]+$/);
+        if (meter_number.length < 9 || !numericRegExp.test(meter_number)) {
+            throw new BadRequest('Valid meter number should be minimal 9 numerical character.');
+        }
+        const response = await axios.post<PLNPrepaidSubscriptionData>('https://testprepaid.mobilepulsa.net/v1/legacy/index', {
+            commands : 'inquiry_pln',
+            username : MobilePulsaConfig.username,
+            hp       : meter_number,
+            sign     : MobilePulsaConfig.generateSignature(meter_number)
+        });
+        const { data } = response.data;
+        return {
+            customer_id: data.hp,
+            meter_number: data.meter_no,
+            subscriber_id: data.subscriber_id,
+            full_name: data.name,
+            segment_power: data.segment_power
         }
     }
 
     @Post('/payment/pln/prepaid/confirm')
     @ValidateRequest({
-        body: ['meter_number'],
+        body: ['meter_number', 'amount', 'wallet_type'],
         useTrim: true
     })
-    public async confirmPlnPrepaidPayment(@Req() request): Promise<{ payment: Payment}> {
+    @UseAuth(UserAuthenticationMiddleware)
+    public async confirmPlnPrepaidPayment(
+        @BodyParams() meter_number: string,
+        @BodyParams() amount: number,
+        @BodyParams() wallet_type: WalletType,
+        @Req() request: Req
+    ): Promise<{
+        user: User,
+        transaction: Transaction,
+        target: Payment
+    }> {
         try {
             await this.databaseService.startTransaction();
-            const body = {
-                meter_number: request.body.meter_number,
-            }
             const numericRegExp = new RegExp(/^[0-9]+$/);
-            if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
-                throw new BadRequest('Input valid meter number')
+            if (meter_number.length < 9 || !numericRegExp.test(meter_number)) {
+                throw new BadRequest('Valid meter number should be minimal 9 numerical character.');
             }
-
+            if (amount <= 0) {
+                throw new BadRequest('Amount should be more than 0. Given: ' + amount + '.');
+            }
+            let user: User = (<any>request).user;
+            // @ts-ignore
+            if (wallet_type !== WalletType.CASH && wallet_type !== WalletType.CASH ){
+                throw new BadRequest('Wallet Type should be "CASH" or "POINT"');
+            }
+            if (wallet_type === WalletType.CASH && user.current_cash < amount) {
+                throw new BadRequest('You have insufficient OFO Cash!');
+            }
+            else if (wallet_type === WalletType.POINT && user.current_point < amount) {
+                throw new BadRequest('You have insufficient OFO Point!');
+            }
+            const response = await axios.post<PLNPrepaidSubscriptionData>('https://testprepaid.mobilepulsa.net/v1/legacy/index', {
+                commands : 'inquiry_pln',
+                username : MobilePulsaConfig.username,
+                hp       : meter_number,
+                sign     : MobilePulsaConfig.generateSignature(meter_number)
+            });
             let payment = new Payment();
-            payment.account_number = body.meter_number;
-            payment.details = 'PT Mentari Agung';
+            payment.account_number = meter_number;
+            payment.details = JSON.stringify(response.data);
             payment.service = ServiceType.PLN_PREPAID;
             payment = await this.manager.save(payment);
 
-            await this.databaseService.commit();
-            return {
-                payment: payment,
-            };
-
-        } catch (error) {
-            await this.databaseService.rollback();
-        }
-    }
-    
-    @Post('/payment/pln/postpaid/confirm')
-    @ValidateRequest({
-        body: ['meter_number', 'wallet_type'],
-        useTrim: true
-    })
-    public async confirmPlnPostpaidPayment(@Req() request): Promise<{ payment: Payment }> {
-        try {
-            await this.databaseService.startTransaction();
-            const body = {
-                meter_number: request.body.meter_number,
-                wallet_type: request.body.wallet_type,
-            }
-            const numericRegExp = new RegExp(/^[0-9]+$/);
-            if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
-                throw new BadRequest('Input valid meter number')
-            }
-            let payment = new Payment();
-            payment.account_number = body.meter_number;
-            payment.details = 'PT Mentari Agung';
-            payment.service = ServiceType.PLN_POSTPAID;
-            payment = await this.manager.save(payment);
-
-            await this.databaseService.commit();
-            return {
-                payment: payment,
-            };
-        } catch (error) {
-            await this.databaseService.rollback();
-        }
-    }
-
-    @Post('/payment/pln/postpaid')
-    @ValidateRequest({
-        body: ['meter_number', 'wallet_type'],
-        useTrim: true
-    })
-    public async requestPlnPostpaidPayment(@Req() request): Promise<{ user: User, transaction: Transaction }> {
-        try {
-            await this.databaseService.startTransaction();
-            const body = {
-                meter_number: request.body.meter_number,
-                wallet_type: request.body.wallet_type,
-            }
-            const numericRegExp = new RegExp(/^[0-9]+$/);
-            if (body.meter_number.length < 10 || !numericRegExp.test(body.meter_number)) {
-                throw new BadRequest('Input valid meter number')
-            }
-            
-            let amount = 20000;
-
-            let user: User = (<any>request).user;
-            if (body.wallet_type !== WalletType.CASH || body.wallet_type !== WalletType.CASH ){
-                throw new BadRequest('Wallet Type Undefined');
-            }
-            if (body.wallet_type === WalletType.CASH && user.balance_cash < amount) {
-                throw new BadRequest('You have insufficient OFO Cash');
-            }
-            else if (body.wallet_type === WalletType.POINT && user.balance_point < amount) {
-                throw new BadRequest('You have insufficient OFO POINT');
-            }
-
-            const fee = 2000;
             let transaction = new Transaction();
-            transaction.target_id = body.meter_number;
+            transaction.target_id = payment.payment_id;
             transaction.amount = amount;
             transaction.flow = FlowType.OUTGOING;
             transaction.target_type = TargetType.PAYMENT;
             transaction.user_id = user.user_id;
-            transaction.wallet_type = body.wallet_type;
-            transaction.fee = fee;
-            
-            const total = amount + fee;
-            if (body.wallet_type === WalletType.CASH){
-                user.balance_cash = user.balance_cash - total
-            } 
-            else if (body.wallet_type === WalletType.POINT) {
-                user.balance_point = user.balance_point - total
-            }
+            transaction.wallet_type = wallet_type;
+            transaction.fee = 2000;
 
+            const total = transaction.amount + transaction.fee;
+            if (wallet_type === WalletType.CASH){
+                user.current_cash = user.current_cash - total
+            } else if (wallet_type === WalletType.POINT) {
+                user.current_point = user.current_point - total
+            }
             const results = await Promise.all([
                 this.manager.save(transaction),
                 this.manager.save(user),
-            ])
-
+            ]);
             transaction = results[0];
             user = results[1];
-
-            let balanceHistory = new BalanceHistory();
-            balanceHistory.user_id = user.user_id;
-            if (body.wallet_type === WalletType.CASH){
-                balanceHistory.balance = user.balance_cash;
-                balanceHistory.type = BalanceType.OFO_CASH;
-            } else if (body.wallet_type === WalletType.POINT) {
-                balanceHistory.balance = user.balance_point;
-                balanceHistory.type = BalanceType.OFO_POINT;
-            }
-            await this.manager.save(balanceHistory);
-
+            let walletHistory = new WalletHistory();
+            walletHistory.user_id = user.user_id;
+            walletHistory.balance = wallet_type === WalletType.CASH ? user.current_cash : user.current_point;
+            walletHistory.type = wallet_type;
+            await this.manager.save(walletHistory);
             await this.databaseService.commit();
             return {
                 user: user,
                 transaction: transaction,
+                target: payment
             };
+        } catch (error) {
+            await this.databaseService.rollback();
+        }
+    }
 
+    @Post('/payment/pln/postpaid/inquery')
+    @ValidateRequest({
+        body: ['customer_id'],
+        useTrim: true
+    })
+    @UseAuth(UserAuthenticationMiddleware)
+    public async inqueryPlnPostpaidPayment(
+        @BodyParams() customer_id: string,
+        @Req() request: Req
+    ): Promise<PLNPostpaidInqueryResponse> {
+        const numericRegExp = new RegExp(/^[0-9]+$/);
+        if (customer_id.length < 9 || !numericRegExp.test(customer_id)) {
+            throw new BadRequest('Valid customer ID should be minimal 9 numerical character.');
+        }
+        const reference_id = uuid.v1();
+        const response = await axios.post<PLNPostpaidSubscriptionData>('https://testprepaid.mobilepulsa.net/v1/legacy/index', {
+            commands: "inq-pasca",
+            username: MobilePulsaConfig.username,
+            code: "PLNPOSTPAID",
+            hp: customer_id,
+            ref_id: reference_id,
+            sign: MobilePulsaConfig.generateSignature(reference_id)
+        });
+        const { data } = response.data;
+        return {
+            customer_id: data.hp,
+            meter_number: data.tr_id.toString(),
+            subscriber_id: customer_id,
+            full_name: data.tr_name,
+            segment_power: data.desc.tarif + '/' + data.desc.daya,
+            amount: data.price
+        }
+    }
+
+    @Post('/payment/pln/postpaid/confirm')
+    @ValidateRequest({
+        body: ['customer_id', 'wallet_type'],
+        useTrim: true
+    })
+    @UseAuth(UserAuthenticationMiddleware)
+    public async confirmPlnPostpaidPayment(
+        @BodyParams() customer_id: string,
+        @BodyParams() wallet_type: WalletType,
+        @Req() request: Req
+    ): Promise<{
+        user: User,
+        transaction: Transaction,
+        target: Payment
+    }> {
+        try {
+            await this.databaseService.startTransaction();
+            const numericRegExp = new RegExp(/^[0-9]+$/);
+            if (customer_id.length < 9 || !numericRegExp.test(customer_id)) {
+                throw new BadRequest('Valid customer ID should be minimal 9 numerical character.');
+            }
+            let user: User = (<any>request).user;
+            const reference_id = uuid.v1();
+            const response = await axios.post<PLNPostpaidSubscriptionData>('https://testprepaid.mobilepulsa.net/v1/legacy/index', {
+                commands: "inq-pasca",
+                username: MobilePulsaConfig.username,
+                code: "PLNPOSTPAID",
+                hp: customer_id,
+                ref_id: reference_id,
+                sign: MobilePulsaConfig.generateSignature(reference_id)
+            });
+            const { data } = response.data;
+            // @ts-ignore
+            if (wallet_type !== WalletType.CASH && wallet_type !== WalletType.CASH ){
+                throw new BadRequest('Wallet Type should be "CASH" or "POINT"');
+            }
+            if (wallet_type === WalletType.CASH && user.current_cash < data.price) {
+                throw new BadRequest('You have insufficient OFO Cash!');
+            }
+            else if (wallet_type === WalletType.POINT && user.current_point < data.price) {
+                throw new BadRequest('You have insufficient OFO Point!');
+            }
+
+            let payment = new Payment();
+            payment.account_number = customer_id;
+            payment.details = JSON.stringify(data);
+            payment.service = ServiceType.PLN_POSTPAID;
+            payment = await this.manager.save(payment);
+
+            let transaction = new Transaction();
+            transaction.target_id = payment.payment_id;
+            transaction.amount = data.price;
+            transaction.flow = FlowType.OUTGOING;
+            transaction.target_type = TargetType.PAYMENT;
+            transaction.user_id = user.user_id;
+            transaction.wallet_type = wallet_type;
+            transaction.fee = 2000;
+
+            const total = transaction.amount + transaction.fee;
+            if (wallet_type === WalletType.CASH){
+                user.current_cash = user.current_cash - total
+            } else if (wallet_type === WalletType.POINT) {
+                user.current_point = user.current_point - total
+            }
+            const results = await Promise.all([
+                this.manager.save(transaction),
+                this.manager.save(user),
+            ]);
+            transaction = results[0];
+            user = results[1];
+            let walletHistory = new WalletHistory();
+            walletHistory.user_id = user.user_id;
+            walletHistory.balance = wallet_type === WalletType.CASH ? user.current_cash : user.current_point;
+            walletHistory.type = wallet_type;
+            await this.manager.save(walletHistory);
+            await this.databaseService.commit();
+            return {
+                user: user,
+                transaction: transaction,
+                target: payment
+            };
         } catch (error) {
             await this.databaseService.rollback();
         }
     }
 }
+
+type PLNPrepaidSubscriptionData = {
+    data: {
+        status: number,
+        hp: string,
+        meter_no: string,
+        subscriber_id: string,
+        name: string,
+        segment_power: string,
+        message: string,
+        rc: string
+    }
+}
+
+type PLNPostpaidSubscriptionData = {
+    data: {
+        tr_id: number,
+        code: string,
+        hp: string,
+        tr_name: string
+        period: string,
+        nominal: number,
+        admin: number,
+        ref_id: string,
+        response_code: string
+        message: string
+        price: number,
+        selling_price: number,
+        desc: {
+            tarif: string,
+            daya: number,
+            lembar_tagihan: string,
+            tagihan: {
+                detail: [
+                    {
+                        periode: string,
+                        nilai_tagihan: string,
+                        admin: string,
+                        denda: string,
+                        total: number
+                    }
+                ]
+            }
+        }
+    },
+    meta: []
+};
+
+type PLNPrepaidInqueryResponse = {
+    customer_id: string,
+    meter_number: string,
+    subscriber_id: string,
+    full_name: string,
+    segment_power: string
+};
+
+
+type PLNPostpaidInqueryResponse = {
+    customer_id: string,
+    meter_number: string,
+    subscriber_id: string,
+    full_name: string,
+    segment_power: string,
+    amount: number
+};
