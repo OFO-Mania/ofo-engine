@@ -77,9 +77,9 @@ export class ProfileController {
 			}
 			fs.renameSync(file.path, userImageFilePath);
 			user.image = `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}`;
-			await this.manager.save(user);
+			user = await this.manager.save(user);
 			await this.databaseService.commit();
-			return { user };
+			return { user: { ...user, image: `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}` } };
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
