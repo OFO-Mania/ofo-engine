@@ -216,9 +216,9 @@ export class TransactionController {
         }
     }
 
-    @Post('/transfer/bank/inquery')
+    @Post('/transfer/bank/inquiry')
     @ValidateRequest({
-        body: ['bank', 'account_number', 'amount'],
+        body: ['bank', 'account_number'],
         useTrim: true,
     })
     @UseAuth(UserAuthenticationMiddleware)
@@ -228,22 +228,12 @@ export class TransactionController {
             const body = {
                 bank: request.body.bank,
                 account_number: request.body.account_number,
-                amount: parseInt(request.body.amount),
                 note: request.body.note || '',
             };
             const user: User = <User> (<any>request).user;
             const numericRegExp = new RegExp(/^[0-9]+$/);
             if (body.account_number.length < 5 || !numericRegExp.test(body.account_number)) {
                 throw new BadRequest('Account number should be minimal 5 numerical character.')
-            }
-            if (isNaN(body.amount)) {
-                throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
-            }
-            if (body.amount < 10000) {
-                throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
-            }
-            if (body.amount > user.current_cash) {
-                throw new BadRequest('You have insufficient OFO Cash!');
             }
             const response = await axios.get('https://randomuser.me/api/');
             let bankAccount = new BankAccount();
