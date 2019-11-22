@@ -15,7 +15,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { Controller, Patch, Post, Req, UseAuth } from '@tsed/common';
+import { Controller, Get, Patch, Post, Req, UseAuth } from '@tsed/common';
 import { Docs } from '@tsed/swagger';
 import { MultipartFile } from '@tsed/multipartfiles';
 import { EntityManager } from 'typeorm';
@@ -37,6 +37,12 @@ export class ProfileController {
 
 	public $afterRoutesInit(): void {
 		this.manager = this.databaseService.getManager();
+	}
+
+	@Get('/')
+	@UseAuth(UserAuthenticationMiddleware)
+	public getProfile(@Req() request: Req): User {
+		return (<any>request).user;
 	}
 
 	@Patch('/')
