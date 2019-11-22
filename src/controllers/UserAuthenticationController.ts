@@ -292,7 +292,7 @@ Please verify your email<br/><br/>
 Dear ${user.full_name},<br/><br/>
 You have registered to Join OFO<br/><br/>
 To confirm that this is your email, please insert the Verification Code: ${verificationCode.value} on the verification page<br/><br/>
-<span style="text-align: center">Please ignore this email if you did not register an account through OVO</span>
+<span style="text-align: center">Please ignore this email if you did not register an account through OFO</span>
 </div>
 `,
 			};
