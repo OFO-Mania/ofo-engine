@@ -29,7 +29,7 @@ import { User } from '../../../model/User';
 import { Deal } from '../../../model/Deal';
 
 @Controller('/merchant')
-export class DealController {
+export class MerchantDealController {
 	private manager: EntityManager;
 
 	constructor(
