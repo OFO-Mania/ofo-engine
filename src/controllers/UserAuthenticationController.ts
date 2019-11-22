@@ -406,6 +406,37 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 		}
 	}
 
+	@Post('/enter_gate')
+	@ValidateRequest({
+		body: [ 'security_code' ],
+		useTrim: true
+	})
+	@UseAuth(UserAuthenticationMiddleware)
+	public async enterGate(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+		try {
+			await this.databaseService.startTransaction();
+			const body = {
+				security_code: request.body.security_code,
+			};
+			const numericRegExp = new RegExp(/^[0-9]+$/);
+			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
+				throw new BadRequest('Security code must be 6 numerical characters.')
+			}
+			const user: User = <User> (<any>request).user;
+			if (!(await argon2.verify(user.security_code, body.security_code))) {
+				throw new BadRequest(`Invalid security code!`);
+			}
+			const payload = user.user_id;
+			const token = jwt.sign(payload, PassportConfig.jwt.secret);
+			await this.databaseService.commit();
+			return { user, token };
+		} catch (error) {
+			await this.databaseService.rollback();
+			throw error;
+		}
+	}
+
+
 	@Post('/sign_in')
 	@ValidateRequest({
 		body: [ 'one_time_token', 'security_code', 'device_type', 'device_id' ],
@@ -447,7 +478,7 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			}
 			await this.manager.remove(oneTimeToken);
 			if (!(await argon2.verify(user.security_code, body.security_code))) {
-				throw new BadRequest(`Security code is invalid!`);
+				throw new BadRequest(`Invalid security code!`);
 			}
 			const payload = user.user_id;
 			const token = jwt.sign(payload, PassportConfig.jwt.secret);
