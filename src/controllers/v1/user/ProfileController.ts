@@ -55,7 +55,7 @@ export class ProfileController {
 			await this.databaseService.startTransaction();
 			const allowedImageFileExts = ['png', 'jpg', 'jpeg', 'gif'];
 			const userImageFileExt = file.originalname.split('.')[1].toLowerCase();
-			const userImageFileName = uuid.v1().concat(userImageFileExt);
+			const userImageFileName = uuid.v1().concat('.').concat(userImageFileExt);
 			const isAllowedExt = allowedImageFileExts.includes(userImageFileExt);
 			const isAllowedMimeType = file.mimetype.startsWith('image/');
 			if (!isAllowedExt || !isAllowedMimeType) {

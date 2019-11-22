@@ -74,7 +74,7 @@ export class DealController {
 			};
 			const allowedImageFileExts = ['png', 'jpg', 'jpeg', 'gif'];
 			const dealImageFileExt = file.originalname.split('.')[1].toLowerCase();
-			const dealImageFileName = uuid.v1().concat(dealImageFileExt);
+			const dealImageFileName = uuid.v1().concat('.').concat(dealImageFileExt);
 			const isAllowedExt = allowedImageFileExts.includes(dealImageFileExt);
 			const isAllowedMimeType = file.mimetype.startsWith('image/');
 			if (!isAllowedExt || !isAllowedMimeType) {

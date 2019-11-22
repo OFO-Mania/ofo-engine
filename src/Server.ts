@@ -52,8 +52,8 @@ const rootDir = Path.resolve(__dirname);
 	},
 	viewsDir: `${rootDir}/views`,
 	mount: {
-		'/': `${rootDir}/controllers/*{.ts,.js}`,
-		'/v1': `${rootDir}/controllers/v1/**/*{.ts,.js}`,
+		'/api/': `${rootDir}/controllers/*{.ts,.js}`,
+		'/api/v1': `${rootDir}/controllers/v1/**/*{.ts,.js}`,
 	},
 	statics: {
 		"/static": `${rootDir}/../ugc`,
