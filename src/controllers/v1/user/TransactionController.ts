@@ -184,6 +184,7 @@ export class TransactionController {
             };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 
@@ -223,6 +224,7 @@ export class TransactionController {
             return { bankAccount };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 
@@ -281,6 +283,7 @@ export class TransactionController {
             return { user, transaction, target: bankAccount };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 
@@ -343,6 +346,7 @@ export class TransactionController {
             };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 
@@ -457,6 +461,7 @@ export class TransactionController {
             };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 
@@ -577,6 +582,7 @@ export class TransactionController {
             };
         } catch (error) {
             await this.databaseService.rollback();
+            throw error;
         }
     }
 }
