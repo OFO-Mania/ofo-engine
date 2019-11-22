@@ -252,10 +252,6 @@ ${user.user_id}`,
 				one_time_token: request.body.one_time_token,
 				security_code: request.body.security_code,
 			};
-			const numericRegExp = new RegExp(/^[0-9]+$/);
-			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
-				throw new BadRequest('Security code must be 6 numerical characters.')
-			}
 			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
 				one_time_token_id: body.one_time_token
 			});
