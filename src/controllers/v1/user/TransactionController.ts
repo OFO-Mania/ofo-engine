@@ -92,7 +92,7 @@ export class TransactionController {
             const body = {
                 phone_number: request.body.phone_number,
                 amount: parseInt(request.body.amount),
-                note: request.body.note,
+                note: request.body.note || '',
             };
             if (body.phone_number.startsWith('0')) {
                 body.phone_number = '62'.concat(body.phone_number.substring(1));
@@ -204,7 +204,7 @@ export class TransactionController {
                 bank: request.body.bank,
                 account_number: request.body.account_number,
                 amount: parseInt(request.body.amount),
-                note: request.body.note,
+                note: request.body.note || '',
             };
             const user: User = <User> (<any>request).user;
             const numericRegExp = new RegExp(/^[0-9]+$/);
@@ -250,7 +250,7 @@ export class TransactionController {
             const body = {
                 bank_account_id: request.body.bank_account_id,
                 amount: parseInt(request.body.amount),
-                note: request.body.note,
+                note: request.body.note || '',
             };
             let user: User = (<any>request).user;
             if (isNaN(body.amount)) {
