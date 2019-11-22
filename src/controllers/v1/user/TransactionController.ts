@@ -312,16 +312,19 @@ export class TransactionController {
             const body = {
                 amount: parseInt(request.body.amount),
             };
+            let user: User = (<any>request).user;
             if (isNaN(body.amount)) {
                 throw new BadRequest('Amount should be numeric. Given: ' + body.amount + '.');
             }
             if (body.amount <= 10000) {
                 throw new BadRequest('Amount should be more than Rp 10.000. Given: ' + body.amount + '.');
             }
+            if (body.amount + user.current_cash > 10000000) {
+                throw new BadRequest('Maximum OFO cash you can have is Rp 10.000.000. Given: ' + body.amount + '.');
+            }
             if (!TransactionController.generateRandomBoolean()) {
                 throw new BadRequest('Your BCA account balance is not enough!');
             }
-            let user: User = (<any>request).user;
 
             let bankAccount = new BankAccount();
             bankAccount.account_number = TransactionController.genereteRandomAccountNumber();
