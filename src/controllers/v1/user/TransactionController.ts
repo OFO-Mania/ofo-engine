@@ -353,7 +353,7 @@ export class TransactionController {
     })
     @UseAuth(UserAuthenticationMiddleware)
     public async inqueryPlnPrepaidPayment(
-        @BodyParams() meter_number: string
+        @BodyParams('meter_number') meter_number: string
     ): Promise<PLNPrepaidInqueryResponse> {
         const numericRegExp = new RegExp(/^[0-9]+$/);
         if (meter_number.length < 9 || !numericRegExp.test(meter_number)) {
@@ -382,9 +382,9 @@ export class TransactionController {
     })
     @UseAuth(UserAuthenticationMiddleware)
     public async confirmPlnPrepaidPayment(
-        @BodyParams() meter_number: string,
-        @BodyParams() amount: number,
-        @BodyParams() wallet_type: WalletType,
+        @BodyParams('meter_number') meter_number: string,
+        @BodyParams('amount') amount: number,
+        @BodyParams('wallet_type') wallet_type: WalletType,
         @Req() request: Req
     ): Promise<{
         user: User,
@@ -467,7 +467,7 @@ export class TransactionController {
     })
     @UseAuth(UserAuthenticationMiddleware)
     public async inqueryPlnPostpaidPayment(
-        @BodyParams() customer_id: string,
+        @BodyParams('customer_id') customer_id: string,
         @Req() request: Req
     ): Promise<PLNPostpaidInqueryResponse> {
         const numericRegExp = new RegExp(/^[0-9]+$/);
@@ -501,8 +501,8 @@ export class TransactionController {
     })
     @UseAuth(UserAuthenticationMiddleware)
     public async confirmPlnPostpaidPayment(
-        @BodyParams() customer_id: string,
-        @BodyParams() wallet_type: WalletType,
+        @BodyParams('customer_id') customer_id: string,
+        @BodyParams('wallet_type') wallet_type: WalletType,
         @Req() request: Req
     ): Promise<{
         user: User,
