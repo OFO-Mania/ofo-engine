@@ -96,11 +96,15 @@ export class MerchantDealController {
 				fs.mkdirSync(dealImageDirPath);
 			}
 			fs.renameSync(file.path, dealImageFilePath);
+			const end_at = new Date();
+			end_at.setDate(end_at.getDate() + 7)
 			let deal = new Deal();
 			deal.name = body.name;
 			deal.description = body.description;
 			deal.terms = body.terms;
 			deal.merchant_id = merchant.user_id;
+			deal.start_at = new Date();
+			deal.end_at = end_at;
 			deal.image = `https://${process.env.BASE_DOMAIN}/static/${merchant.user_id}/deals/${dealImageFileName}`;
 			deal = await this.manager.save(deal);
 			await this.databaseService.commit();

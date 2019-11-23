@@ -41,9 +41,10 @@ export class Deal {
     @Required()
     terms: string;
 
-    @Column({ length: 255 })
+    @Column({ length: 2048 })
     @Required()
-    image: string;
+    @Default('')
+    image: string = '';
 
     @Column({ type: 'timestamp' })
     @Required()

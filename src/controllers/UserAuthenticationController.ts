@@ -115,6 +115,7 @@ export class UserAuthenticationController {
 			user.phone_number = body.phone_number;
 			user.email_address = body.email_address;
 			user.referral_code = body.referral_code;
+			user.image = '';
 			user = await this.manager.save(user);
 			await this.databaseService.commit();
 			return { user };

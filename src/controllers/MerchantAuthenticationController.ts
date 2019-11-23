@@ -68,7 +68,7 @@ export class MerchantAuthenticationController {
 				full_name: request.body.full_name,
 				phone_number: request.body.phone_number,
 				email_address: request.body.email_address,
-				security_code: request.body.security_code
+				security_code: request.body.security_code,
 			};
 			const emailRegExp = new RegExp(
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
@@ -113,6 +113,7 @@ export class MerchantAuthenticationController {
 			user.email_address = body.email_address;
 			user.type = UserType.MERCHANT;
 			user.has_security_code = true;
+			user.image = '';
 			user.security_code = await argon2.hash(body.security_code);
 			user = await this.manager.save(user);
 			await this.databaseService.commit();

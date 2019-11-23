@@ -61,7 +61,7 @@ export class User {
 	@Default(false)
 	is_verified: boolean = false;
 
-	@Column({ length: 255 })
+	@Column({ length: 2048 })
 	@Required()
 	@Default('')
 	image: string = '';
