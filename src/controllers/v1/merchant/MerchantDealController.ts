@@ -81,7 +81,6 @@ export class MerchantDealController {
 			if (!isAllowedExt || !isAllowedMimeType) {
 				throw new BadRequest('The uploaded file is not an image file.')
 			}
-
 			const merchant: User = <User> (<any>request).user;
 			const ugcPath = path.join(process.cwd(), 'ugc');
 			const merchantUgcPath = path.join(ugcPath, merchant.user_id);
@@ -101,6 +100,7 @@ export class MerchantDealController {
 			deal.name = body.name;
 			deal.description = body.description;
 			deal.terms = body.terms;
+			deal.merchant_id = merchant.user_id;
 			deal.image = `https://${process.env.BASE_DOMAIN}/static/${merchant.user_id}/deals/${dealImageFileName}`;
 			deal = await this.manager.save(deal);
 			await this.databaseService.commit();
