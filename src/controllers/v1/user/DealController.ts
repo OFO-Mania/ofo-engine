@@ -47,8 +47,16 @@ export class DealController {
 	public async getDeals(@Req() request: Req): Promise<{ deals: Deal[] }> {
 		const merchant: User = <User> (<any>request).user;
 		// @ts-ignore
-		return {
-			deals: await this.manager.find(Deal)
+		const deals = await this.manager.find(Deal);
+		let index = 0;
+		for (const deal of deals) {
+			(<any>deal).merchant_name = (await this.manager.findOne(User, {
+				user_id: deal.merchant_id
+			})).full_name;
+			index++;
+		}
+ 		return {
+			deals
 		}
 	}
 
