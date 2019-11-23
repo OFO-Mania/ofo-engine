@@ -34,7 +34,7 @@ export class PushNotificationService {
 				en: notification.message
 			},
 			big_picture: notification.image,
-			included_segments: deviceID ? deviceID : ['All'],
+			included_segments: ['All'],
 			include_player_ids: deviceID ? [ deviceID ] : deviceID
 		};
 		const client = axios.create({
