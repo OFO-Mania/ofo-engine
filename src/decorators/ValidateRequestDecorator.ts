@@ -23,7 +23,7 @@ export function ValidateRequest(requirements: RequestRequirements): Function {
 			if (requirements.useTrim === true) {
 				for (const field in request.query) {
 					if (
-						request.query.hasOwnProperty(field) &&
+						typeof request.query[field] === 'undefined'  &&
 						typeof request.query[field].trim === 'function'
 					) {
 						request.query[field] = request.query[field].trim();
@@ -31,7 +31,7 @@ export function ValidateRequest(requirements: RequestRequirements): Function {
 				}
 				for (const field in request.body) {
 					if (
-						request.body.hasOwnProperty(field) &&
+						typeof request.body[field] === 'undefined'  &&
 						typeof request.body[field].trim === 'function'
 					) {
 						request.body[field] = request.body[field].trim();

@@ -61,6 +61,7 @@ export class MerchantDealController {
 		files: [ 'image' ],
 		useTrim: true,
 	})
+	@UseAuth(MerchantAuthenticationMiddleware)
 	public async createDeal(
 		@MultipartFile('image') file: Express.Multer.File,
 		@Req() request: Req
@@ -120,6 +121,7 @@ export class MerchantDealController {
 		query: [ 'deal_id' ],
 		useTrim: true,
 	})
+	@UseAuth(MerchantAuthenticationMiddleware)
 	public async removeDeal(
 		@MultipartFile('image') file: Express.Multer.File,
 		@Req() request: Req
