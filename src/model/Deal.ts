@@ -42,7 +42,6 @@ export class Deal {
     terms: string;
 
     @Column({ length: 2048 })
-    @Required()
     @Default('')
     image: string = '';
 
