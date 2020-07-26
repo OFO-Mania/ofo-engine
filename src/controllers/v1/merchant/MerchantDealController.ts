@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-import fs from "fs";
-import path from "path";
-import uuid from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import { v1 as uuidv1 } from 'uuid';
 import { Controller, Delete, Get, Post, Req, UseAuth } from '@tsed/common';
 import { MultipartFile } from '@tsed/multipartfiles';
 import { EntityManager } from 'typeorm';
@@ -32,10 +32,7 @@ import { Deal } from '../../../model/Deal';
 export class MerchantDealController {
 	private manager: EntityManager;
 
-	constructor(
-		private databaseService: DatabaseService,
-		private pushNotificationService: PushNotificationService
-	) { }
+	constructor(private databaseService: DatabaseService, private pushNotificationService: PushNotificationService) {}
 
 	public $afterRoutesInit(): void {
 		this.manager = this.databaseService.getManager();
@@ -43,22 +40,24 @@ export class MerchantDealController {
 
 	@Get('/deals')
 	@UseAuth(MerchantAuthenticationMiddleware)
-	public async fetchDeals(@Req() request: Req): Promise<{
-		deals: Deal[]
+	public async fetchDeals(
+		@Req() request: Req
+	): Promise<{
+		deals: Deal[];
 	}> {
-		const merchant: User = <User> (<any>request).user;
+		const merchant: User = <User>(<any>request).user;
 		return {
 			// @ts-ignore
 			deals: await this.manager.find(Deal, {
-				user_id: merchant.user_id
-			})
+				user_id: merchant.user_id,
+			}),
 		};
 	}
 
 	@Post('/deal')
 	@ValidateRequest({
-		body: [ 'name', 'description', 'terms' ],
-		files: [ 'image' ],
+		body: ['name', 'description', 'terms'],
+		files: ['image'],
 		useTrim: true,
 	})
 	@UseAuth(MerchantAuthenticationMiddleware)
@@ -75,13 +74,13 @@ export class MerchantDealController {
 			};
 			const allowedImageFileExts = ['png', 'jpg', 'jpeg', 'gif'];
 			const dealImageFileExt = file.originalname.split('.')[1].toLowerCase();
-			const dealImageFileName = uuid.v1().concat('.').concat(dealImageFileExt);
+			const dealImageFileName = uuidv1().concat('.').concat(dealImageFileExt);
 			const isAllowedExt = allowedImageFileExts.includes(dealImageFileExt);
 			const isAllowedMimeType = file.mimetype.startsWith('image/');
 			if (!isAllowedExt || !isAllowedMimeType) {
-				throw new BadRequest('The uploaded file is not an image file.')
+				throw new BadRequest('The uploaded file is not an image file.');
 			}
-			const merchant: User = <User> (<any>request).user;
+			const merchant: User = <User>(<any>request).user;
 			const ugcPath = path.join(process.cwd(), 'ugc');
 			const merchantUgcPath = path.join(ugcPath, merchant.user_id);
 			const dealImageDirPath = path.join(merchantUgcPath, 'deals');
@@ -97,7 +96,7 @@ export class MerchantDealController {
 			}
 			fs.renameSync(file.path, dealImageFilePath);
 			const end_at = new Date();
-			end_at.setDate(end_at.getDate() + 7)
+			end_at.setDate(end_at.getDate() + 7);
 			let deal = new Deal();
 			deal.name = body.name;
 			deal.description = body.description;
@@ -111,7 +110,7 @@ export class MerchantDealController {
 			await this.pushNotificationService.sendNotification({
 				title: 'OFO new deal!',
 				message: deal.name,
-				image: deal.image
+				image: deal.image,
 			});
 			return { deal };
 		} catch (error) {
@@ -122,24 +121,21 @@ export class MerchantDealController {
 
 	@Delete('/deal')
 	@ValidateRequest({
-		query: [ 'deal_id' ],
+		query: ['deal_id'],
 		useTrim: true,
 	})
 	@UseAuth(MerchantAuthenticationMiddleware)
-	public async removeDeal(
-		@MultipartFile('image') file: Express.Multer.File,
-		@Req() request: Req
-	): Promise<string> {
+	public async removeDeal(@MultipartFile('image') file: Express.Multer.File, @Req() request: Req): Promise<string> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
-				deal_id: request.body.deal_id
+				deal_id: request.body.deal_id,
 			};
 			const deal = await this.manager.findOne(Deal, {
-				deal_id: body.deal_id
+				deal_id: body.deal_id,
 			});
 			if (typeof deal === 'undefined') {
-				throw new BadRequest(`There is no deal with identifier ${body.deal_id}.`)
+				throw new BadRequest(`There is no deal with identifier ${body.deal_id}.`);
 			}
 			await this.manager.remove(deal);
 			await this.databaseService.commit();
@@ -149,5 +145,4 @@ export class MerchantDealController {
 			throw error;
 		}
 	}
-
 }

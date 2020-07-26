@@ -21,36 +21,42 @@ import { PushNotificationConfig } from '../config/pushnotification.config';
 export class PushNotificationService {
 	constructor() {}
 
-	public sendNotification(notification: {
-		title: string, message: string, image?: string
-	}, deviceID?: string)
-		: Promise<AxiosResponse<INotificationResponse>> {
+	public sendNotification(
+		notification: {
+			title: string;
+			message: string;
+			image?: string;
+		},
+		deviceID?: string
+	): Promise<AxiosResponse<INotificationResponse>> {
+		if (!PushNotificationConfig.onesignal.enable) {
+			throw new Error('Push Notification Service disabled.');
+		}
 		const data = {
-			app_id:  PushNotificationConfig.onesignal.applicationIdentifier,
+			app_id: PushNotificationConfig.onesignal.applicationIdentifier,
 			headings: {
-				en: notification.title
+				en: notification.title,
 			},
 			contents: {
-				en: notification.message
+				en: notification.message,
 			},
 			big_picture: notification.image,
 			included_segments: deviceID ? [deviceID] : ['All'],
-			include_player_ids: deviceID ? [ deviceID ] : deviceID
+			include_player_ids: deviceID ? [deviceID] : deviceID,
 		};
 		const client = axios.create({
 			baseURL: 'https://onesignal.com',
 			headers: {
 				Authorization: `Basic ${PushNotificationConfig.onesignal.apiKey}`,
-				'Content-Type': 'application/json; charset=utf-8'
-			}
+				'Content-Type': 'application/json; charset=utf-8',
+			},
 		});
 		return client.post<INotificationResponse>('/api/v1/notifications', data);
 	}
-
 }
 
 export interface INotificationResponse {
-	id: string
-	players: string[]
-	messageable_players: string[]
+	id: string;
+	players: string[];
+	messageable_players: string[];
 }

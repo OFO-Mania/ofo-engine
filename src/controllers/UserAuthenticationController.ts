@@ -31,11 +31,11 @@ import { VerificationCode, VerificationCodeType } from '../model/VerificationCod
 import { OneTimeToken } from '../model/OneTimeToken';
 import { Device, DeviceType } from '../model/Device';
 import { UserAuthenticationMiddleware } from '../middlewares/UserAuthenticationMiddleware';
+import { MailConfig } from '../config/mail.config';
 
 @Controller('/auth')
 @Docs('api-v1')
 export class UserAuthenticationController {
-
 	private manager: EntityManager;
 
 	constructor(private databaseService: DatabaseService) {}
@@ -44,13 +44,7 @@ export class UserAuthenticationController {
 		const availableCharacters = '0123456789';
 		const otp = [];
 		for (let i = 0; i < 4; i++) {
-			otp.push(
-				availableCharacters.charAt(
-					Math.floor(
-						Math.random() * availableCharacters.length
-					)
-				)
-			);
+			otp.push(availableCharacters.charAt(Math.floor(Math.random() * availableCharacters.length)));
 		}
 		return otp.join('');
 	}
@@ -62,7 +56,7 @@ export class UserAuthenticationController {
 	@Post('/join')
 	@ValidateRequest({
 		body: ['full_name', 'phone_number', 'email_address'],
-		useTrim: true
+		useTrim: true,
 	})
 	public async join(@Req() request: Req, @Res() response: Res): Promise<{ user: User }> {
 		try {
@@ -77,11 +71,11 @@ export class UserAuthenticationController {
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 			);
 			if (!emailRegExp.test(body.email_address)) {
-				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`);
 			}
 			let user = await this.manager.findOne(User, {
 				email_address: body.email_address,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -101,7 +95,7 @@ export class UserAuthenticationController {
 			}
 			user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -128,7 +122,7 @@ export class UserAuthenticationController {
 	@Post('/phone_verification/send')
 	@ValidateRequest({
 		body: ['phone_number'],
-		useTrim: true
+		useTrim: true,
 	})
 	public async sendPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<string> {
 		try {
@@ -144,19 +138,19 @@ export class UserAuthenticationController {
 			}
 			const user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
 			}
 			let verificationCode = await this.manager.findOne(VerificationCode, {
 				type: VerificationCodeType.PHONE_NUMBER,
-				user_id: user.user_id
+				user_id: user.user_id,
 			});
 			if (typeof verificationCode !== 'undefined') {
-				const delta = (new Date()).getTime() - verificationCode.created_at.getTime();
-				if (delta < (30 * 1000)) {
-					const waitTime = Math.ceil(((30 * 1000) - delta) / 1000);
+				const delta = new Date().getTime() - verificationCode.created_at.getTime();
+				if (delta < 30 * 1000) {
+					const waitTime = Math.ceil((30 * 1000 - delta) / 1000);
 					throw new BadRequest(`Please wait ${waitTime} seconds to request new phone verification code.`);
 				}
 				await this.manager.remove(verificationCode);
@@ -166,21 +160,26 @@ export class UserAuthenticationController {
 			verificationCode.user_id = user.user_id;
 			verificationCode.value = UserAuthenticationController.generateVerificationCode();
 			verificationCode = await this.manager.save(verificationCode);
-			const client = twilio(MessagingConfig.twilio.accountServiceID, MessagingConfig.twilio.authToken);
-			await client.messages.create({
-				body: `
+			const textMessage = `
 <#> Verification Code OFO: ${verificationCode.value}
 
 DO NOT GIVE THIS SECRET CODE TO ANYONE, INCLUDING THOSE CLAIMING TO BE FROM OFO
 
 Call 0857-2563-9268 for help
 
-${user.user_id}`,
-				messagingServiceSid: MessagingConfig.twilio.messagingServiceID,
-				to: body.phone_number
-			});
+${user.user_id}`;
 			await this.databaseService.commit();
-			return 'We have sent a verification code to your phone number.';
+			if (MessagingConfig.twilio.enable) {
+				const client = twilio(MessagingConfig.twilio.accountServiceID, MessagingConfig.twilio.authToken);
+				await client.messages.create({
+					body: textMessage,
+					messagingServiceSid: MessagingConfig.twilio.messagingServiceID,
+					to: body.phone_number,
+				});
+				return 'We have sent a verification code to your phone number.';
+			} else {
+				return textMessage;
+			}
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
@@ -190,11 +189,14 @@ ${user.user_id}`,
 	@Post('/phone_verification/verify')
 	@ValidateRequest({
 		body: ['phone_number', 'verification_code'],
-		useTrim: true
+		useTrim: true,
 	})
-	public async verifyPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<{
-		has_security_code: boolean,
-		one_time_token: string
+	public async verifyPhoneVerification(
+		@Req() request: Req,
+		@Res() response: Res
+	): Promise<{
+		has_security_code: boolean;
+		one_time_token: string;
 	}> {
 		try {
 			await this.databaseService.startTransaction();
@@ -210,7 +212,7 @@ ${user.user_id}`,
 			}
 			const user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
@@ -232,7 +234,7 @@ ${user.user_id}`,
 			await this.databaseService.commit();
 			return {
 				has_security_code: user.has_security_code,
-				one_time_token: oneTimeToken.one_time_token_id
+				one_time_token: oneTimeToken.one_time_token_id,
 			};
 		} catch (error) {
 			await this.databaseService.rollback();
@@ -242,8 +244,8 @@ ${user.user_id}`,
 
 	@Post('/email_verification/send')
 	@ValidateRequest({
-		body: [ 'email_address' ],
-		useTrim: true
+		body: ['email_address'],
+		useTrim: true,
 	})
 	public async sendEmailVerification(@Req() request: Req, @Res() response: Res): Promise<string> {
 		try {
@@ -256,23 +258,23 @@ ${user.user_id}`,
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 			);
 			if (!emailRegExp.test(body.email_address)) {
-				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`);
 			}
 			const user = await this.manager.findOne(User, {
 				email_address: body.email_address,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Email address ${body.email_address} is not a registered user.`);
 			}
 			let verificationCode = await this.manager.findOne(VerificationCode, {
 				type: VerificationCodeType.EMAIL_ADDRESS,
-				user_id: user.user_id
+				user_id: user.user_id,
 			});
 			if (typeof verificationCode !== 'undefined') {
-				const delta = (new Date()).getTime() - verificationCode.created_at.getTime();
-				if (delta < (30 * 1000)) {
-					const waitTime = Math.ceil(((30 * 1000) - delta) / 1000);
+				const delta = new Date().getTime() - verificationCode.created_at.getTime();
+				if (delta < 30 * 1000) {
+					const waitTime = Math.ceil((30 * 1000 - delta) / 1000);
 					throw new BadRequest(`Please wait ${waitTime} seconds to request new email verification code.`);
 				}
 				await this.manager.remove(verificationCode);
@@ -283,11 +285,12 @@ ${user.user_id}`,
 			verificationCode.value = UserAuthenticationController.generateVerificationCode();
 			verificationCode = await this.manager.save(verificationCode);
 			// Send E-mail
-			const message = {
-				to: user.email_address,
-				from: 'OFO <noreply@ofo.id>',
-				subject: 'Your Verification Code',
-				html: `
+			if (MailConfig.enable) {
+				const message = {
+					to: user.email_address,
+					from: 'OFO <noreply@ofo.id>',
+					subject: 'Your Verification Code',
+					html: `
 <div>
 Please verify your email<br/><br/>
 Dear ${user.full_name},<br/><br/>
@@ -296,10 +299,13 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 <span style="text-align: center">Please ignore this email if you did not register an account through OFO</span>
 </div>
 `,
-			};
-			await SendGridMail.send(message);
-			await this.databaseService.commit();
-			return 'We have sent a verification code to your email address.';
+				};
+				await SendGridMail.send(message);
+				await this.databaseService.commit();
+				return 'We have sent a verification code to your email address.';
+			} else {
+				return `Your verification code is ${verificationCode.value}. [Mail Service Disabled]`;
+			}
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
@@ -308,40 +314,43 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 
 	@Post('/email_verification/verify')
 	@ValidateRequest({
-		body: [ 'email_address', 'verification_code' ],
-		useTrim: true
+		body: ['email_address', 'verification_code'],
+		useTrim: true,
 	})
-	public async verifyEmailVerification(@Req() request: Req, @Res() response: Res): Promise<{
-		one_time_token: string
+	public async verifyEmailVerification(
+		@Req() request: Req,
+		@Res() response: Res
+	): Promise<{
+		one_time_token: string;
 	}> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
 				email_address: request.body.email_address,
-				verification_code: request.body.verification_code
+				verification_code: request.body.verification_code,
 			};
 			const emailRegExp = new RegExp(
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 			);
 			if (!emailRegExp.test(body.email_address)) {
-				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`);
 			}
 			let user = await this.manager.findOne(User, {
 				email_address: body.email_address,
-				type: UserType.USER
+				type: UserType.USER,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Email address ${body.email_address} is not a registered user.`);
 			}
 			let verificationCode = await this.manager.findOne(VerificationCode, {
 				type: VerificationCodeType.EMAIL_ADDRESS,
-				user_id: user.user_id
+				user_id: user.user_id,
 			});
 			if (typeof verificationCode === 'undefined') {
 				throw new BadRequest(`You have never request verification code via email address`);
 			}
 			if (verificationCode.value !== body.verification_code) {
-				throw new BadRequest(`The verification code you entered is invalid.`)
+				throw new BadRequest(`The verification code you entered is invalid.`);
 			}
 			await this.manager.remove(verificationCode);
 			user.is_verified = true;
@@ -359,10 +368,10 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 
 	@Post('/set_security_code')
 	@ValidateRequest({
-		body: [ 'one_time_token', 'security_code', 'device_type', 'device_id' ],
-		useTrim: true
+		body: ['one_time_token', 'security_code', 'device_type', 'device_id'],
+		useTrim: true,
 	})
-	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+	public async setSecurityCode(@Req() request: Req, @Res() response: Res): Promise<{ user: User; token: string }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -371,7 +380,10 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 				device_type: request.body.device_type,
 				device_id: request.body.device_id,
 			};
-			if (body.device_type.toUpperCase() !== DeviceType.IOS && body.device_type !== DeviceType.ANDROID.toUpperCase()) {
+			if (
+				body.device_type.toUpperCase() !== DeviceType.IOS &&
+				body.device_type !== DeviceType.ANDROID.toUpperCase()
+			) {
 				throw new BadRequest('Device type should be Android or iOS.');
 			}
 			if (body.device_id.length !== 36) {
@@ -379,16 +391,16 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			}
 			const numericRegExp = new RegExp(/^[0-9]+$/);
 			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
-				throw new BadRequest('Security code must be 6 numerical characters.')
+				throw new BadRequest('Security code must be 6 numerical characters.');
 			}
 			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
-				one_time_token_id: body.one_time_token
+				one_time_token_id: body.one_time_token,
 			});
 			if (typeof oneTimeToken === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
 			}
 			let user = await this.manager.findOne(User, {
-				user_id: oneTimeToken.user_id
+				user_id: oneTimeToken.user_id,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
@@ -409,11 +421,11 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 
 	@Post('/enter_gate')
 	@ValidateRequest({
-		body: [ 'security_code' ],
-		useTrim: true
+		body: ['security_code'],
+		useTrim: true,
 	})
 	@UseAuth(UserAuthenticationMiddleware)
-	public async enterGate(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+	public async enterGate(@Req() request: Req, @Res() response: Res): Promise<{ user: User; token: string }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -421,9 +433,9 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			};
 			const numericRegExp = new RegExp(/^[0-9]+$/);
 			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
-				throw new BadRequest('Security code must be 6 numerical characters.')
+				throw new BadRequest('Security code must be 6 numerical characters.');
 			}
-			const user: User = <User> (<any>request).user;
+			const user: User = <User>(<any>request).user;
 			if (!(await argon2.verify(user.security_code, body.security_code))) {
 				throw new BadRequest(`Invalid security code!`);
 			}
@@ -437,13 +449,12 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 		}
 	}
 
-
 	@Post('/sign_in')
 	@ValidateRequest({
-		body: [ 'one_time_token', 'security_code', 'device_type', 'device_id' ],
-		useTrim: true
+		body: ['one_time_token', 'security_code', 'device_type', 'device_id'],
+		useTrim: true,
 	})
-	public async signIn(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+	public async signIn(@Req() request: Req, @Res() response: Res): Promise<{ user: User; token: string }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -452,7 +463,10 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 				device_type: request.body.device_type,
 				device_id: request.body.device_id,
 			};
-			if (body.device_type.toUpperCase() !== DeviceType.IOS && body.device_type !== DeviceType.ANDROID.toUpperCase()) {
+			if (
+				body.device_type.toUpperCase() !== DeviceType.IOS &&
+				body.device_type !== DeviceType.ANDROID.toUpperCase()
+			) {
 				throw new BadRequest('Device type should be Android or iOS.');
 			}
 			if (body.device_id.length !== 36) {
@@ -460,16 +474,16 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			}
 			const numericRegExp = new RegExp(/^[0-9]+$/);
 			if (body.security_code.length !== 6 || !numericRegExp.test(body.security_code)) {
-				throw new BadRequest('Security code must be 6 numerical characters.')
+				throw new BadRequest('Security code must be 6 numerical characters.');
 			}
 			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
-				one_time_token_id: body.one_time_token
+				one_time_token_id: body.one_time_token,
 			});
 			if (typeof oneTimeToken === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
 			}
 			let user = await this.manager.findOne(User, {
-				user_id: oneTimeToken.user_id
+				user_id: oneTimeToken.user_id,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
@@ -493,8 +507,8 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 
 	@Post('/sign_out')
 	@ValidateRequest({
-		body: [ 'device_type', 'device_id' ],
-		useTrim: true
+		body: ['device_type', 'device_id'],
+		useTrim: true,
 	})
 	@UseAuth(UserAuthenticationMiddleware)
 	public async signOut(@Req() request: Req, @Res() response: Res): Promise<string> {
@@ -504,21 +518,24 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 				device_type: request.body.device_type,
 				device_id: request.body.device_id,
 			};
-			if (body.device_type.toUpperCase() !== DeviceType.IOS && body.device_type !== DeviceType.ANDROID.toUpperCase()) {
+			if (
+				body.device_type.toUpperCase() !== DeviceType.IOS &&
+				body.device_type !== DeviceType.ANDROID.toUpperCase()
+			) {
 				throw new BadRequest('Device type should be Android or iOS.');
 			}
 			if (body.device_id.length !== 36) {
 				throw new BadRequest('Device identifier should be 36 long UUID.');
 			}
-			const user: User = <User> (<any>request).user;
+			const user: User = <User>(<any>request).user;
 			// @ts-ignore
 			const devices = await this.manager.find(Device, {
 				user_id: user.user_id,
 				device_id: body.device_id,
-				device_type: body.device_type
+				device_type: body.device_type,
 			});
 			if (typeof devices !== 'undefined' && devices.length > 0) {
-				const promises = devices.map(d => this.manager.remove(d));
+				const promises = devices.map((d) => this.manager.remove(d));
 				await Promise.all(promises);
 			}
 			await this.databaseService.commit();
@@ -528,5 +545,4 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 			throw error;
 		}
 	}
-
 }

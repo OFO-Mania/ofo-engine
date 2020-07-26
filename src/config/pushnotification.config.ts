@@ -17,8 +17,8 @@ require('dotenv').config();
 
 export const PushNotificationConfig = {
 	onesignal: {
+		enable: process.env.ONESIGNAL_ENABLE == 'true' || false,
 		apiKey: process.env.ONESIGNAL_API_KEY,
 		applicationIdentifier: process.env.ONESIGNAL_APP_ID,
-	}
+	},
 };
-

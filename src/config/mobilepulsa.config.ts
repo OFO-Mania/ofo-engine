@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from 'crypto';
 
 /**
  * Copyright 2019, Danang Galuh Tegar Prasetyo & Mokhamad Mustaqim.
@@ -18,13 +18,13 @@ import crypto from "crypto";
 require('dotenv').config();
 
 export const MobilePulsaConfig = {
+	enable: process.env.MOBILEPULSA_ENABLE == 'true' || false,
 	username: process.env.MOBILEPULSA_USERNAME,
 	apiKey: process.env.MOBILEPULSA_API_KEY,
 	generateSignature(reference_id: string) {
 		return crypto
 			.createHash('md5')
 			.update(this.username + this.apiKey + reference_id)
-			.digest('hex')
-	}
+			.digest('hex');
+	},
 };
-

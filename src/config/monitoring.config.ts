@@ -16,5 +16,6 @@
 require('dotenv').config();
 
 export const MonitoringConfig = {
+	enable: process.env.SENTRY_ENABLE == 'true' || false,
 	sentryDSN: process.env.SENTRY_DSN || '',
 };

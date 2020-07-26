@@ -17,5 +17,5 @@ require('dotenv').config();
 
 export const SessionConfig = {
 	name: process.env.SESSION_NAME || 'application',
-	secret: process.env.SESSION_SECRET
+	secret: process.env.SESSION_SECRET,
 };
