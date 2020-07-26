@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-import { isArray, isString } from '@tsed/core';
-import { ServerLoader, ServerSettings, Req, Res, Next } from '@tsed/common';
+import { Configuration, Inject, PlatformApplication } from '@tsed/common';
 import '@tsed/typeorm';
 import '@tsed/swagger';
 import '@tsed/ajv';
@@ -39,25 +38,33 @@ import { ServerConfig } from './config/server.config';
 import { NotFoundMiddleware } from './middlewares/NotFoundMiddleware';
 import { ResponseMiddleware } from './middlewares/ResponseMiddleware';
 import { ErrorHandlerMiddleware } from './middlewares/ErrorHandlerMiddleware';
+import { ServerOptions } from 'https';
 
 const rootDir = Path.resolve(__dirname);
+const httpPort = ServerConfig.address + ':' + ServerConfig.port;
+const httpsPort = ServerConfig.httpsEnable ? ServerConfig.address + ':' + (parseInt(ServerConfig.port) + 1) : false;
+const httpsOptionsFunc = function () {
+	if (ServerConfig.httpsEnable) {
+		return <ServerOptions>{
+			key: fs.readFileSync(Path.join(__dirname, '..', 'keys', 'server.key')),
+			cert: fs.readFileSync(Path.join(__dirname, '..', 'keys', 'server.crt')),
+		};
+	}
+};
 
-@ServerSettings({
+@Configuration({
 	rootDir,
-	httpPort: ServerConfig.address + ':' + (+ServerConfig.port + 1),
-	httpsPort: ServerConfig.address + ':' + ServerConfig.port,
-	httpsOptions: {
-		key: fs.readFileSync(Path.join(__dirname, '..', 'keys', 'server.key')),
-		cert: fs.readFileSync(Path.join(__dirname, '..', 'keys', 'server.cert'))
-	},
+	httpPort,
+	httpsPort,
+	httpsOptions: httpsOptionsFunc(),
 	viewsDir: `${rootDir}/views`,
 	mount: {
 		'/api/': `${rootDir}/controllers/*{.ts,.js}`,
 		'/api/v1': `${rootDir}/controllers/v1/**/*{.ts,.js}`,
 	},
 	statics: {
-		"/static": `${rootDir}/../ugc`,
-		"/merchant": `${rootDir}/../../ofo-panel/public`
+		'/static': `${rootDir}/../ugc`,
+		'/merchant': `${rootDir}/../../ofo-panel/public`,
 	},
 	uploadDir: `${rootDir}/../ugc`,
 	typeorm: [
@@ -69,69 +76,86 @@ const rootDir = Path.resolve(__dirname);
 			username: DatabaseConfig.username,
 			password: DatabaseConfig.password,
 			database: DatabaseConfig.name,
+			connectTimeout: 20000,
+			acquireTimeout: 20000,
 			synchronize: true,
 			logging: false,
-			entities: [
-				`${rootDir}/model/*{.ts,.js}`
-			],
-			migrations: [
-				`${rootDir}/migrations/*{.ts,.js}`
-			],
-			subscribers: [
-				`${rootDir}/subscriber/*{.ts,.js}`
-			]
-		}
+			entities: [`${rootDir}/model/*{.ts,.js}`],
+			migrations: [`${rootDir}/migrations/*{.ts,.js}`],
+			subscribers: [`${rootDir}/subscriber/*{.ts,.js}`],
+		},
 	],
-	swagger: [{
-		path: '/docs',
-		doc: 'api-v1',
-	}],
+	swagger: [
+		{
+			path: '/docs',
+			doc: 'api-v1',
+		},
+	],
 	ajv: {
 		errorFormat: (error) => `Parameter "${error.dataPath.substr(1)}" ${error.message}.`,
 	},
 })
-export class Server extends ServerLoader {
+export class Server {
+	@Inject()
+	app: PlatformApplication;
+
+	@Configuration()
+	settings: Configuration;
 
 	public $beforeInit(): void {
-		this.set('trust proxy', 1);
-		this.set('views', this.settings.get('viewsDir'));
-		this.engine('ejs', ejs);
-		Sentry.init({
-			dsn: MonitoringConfig.sentryDSN
-		});
-		SendGridMail.setApiKey(MailConfig.sendGridKey);
+		// this.app.set('trust proxy', 1)
+		// 	.set('views', this.settings.get('viewsDir'))
+		// 	.engine('ejs', ejs);
+		if (MonitoringConfig.enable) {
+			Sentry.init({
+				dsn: MonitoringConfig.sentryDSN,
+			});
+		}
+		if (MailConfig.enable) {
+			SendGridMail.setApiKey(MailConfig.sendGridKey);
+		}
 	}
 
+	/**
+	 * This method let you configure the express middleware required by your application to works.
+	 * @returns {Server}
+	 */
 	public $beforeRoutesInit(): void {
-		this
-			.use(Sentry.Handlers.requestHandler())
+		if (MonitoringConfig.enable) {
+			this.app.use(Sentry.Handlers.requestHandler());
+		}
+		this.app
 			.use(helmet())
-			.use(cors({
-				allowedHeaders: [
-					'Accept',
-					'Authorization',
-					'Content-Type',
-					'Use-Token',
-					'X-HTTP-Method-Override',
-					'X-Requested-With',
-				],
-				methods: [ 'GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'UPDATE', 'OPTIONS' ],
-				origin: true,
-			}))
+			.use(
+				cors({
+					allowedHeaders: [
+						'Accept',
+						'Authorization',
+						'Content-Type',
+						'Use-Token',
+						'X-HTTP-Method-Override',
+						'X-Requested-With',
+					],
+					methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'UPDATE', 'OPTIONS'],
+					origin: true,
+				})
+			)
 			.use(compress({}))
 			.use(methodOverride())
 			.use(json())
-			.use(urlencoded({
-				extended: true
-			}))
+			.use(
+				urlencoded({
+					extended: true,
+				})
+			)
 			.use(favicon(Path.join(__dirname, 'views', 'favicon.ico')));
 	}
 
 	public $afterRoutesInit(): void {
-		this.use(NotFoundMiddleware)
-			.use(ResponseMiddleware)
-			.use(Sentry.Handlers.errorHandler())
-			.use(ErrorHandlerMiddleware)
+		this.app.use(NotFoundMiddleware).use(ResponseMiddleware);
+		if (MonitoringConfig.enable) {
+			this.app.use(Sentry.Handlers.errorHandler());
+		}
+		this.app.use(ErrorHandlerMiddleware);
 	}
-
 }
