@@ -1,5 +1,5 @@
 /**
- * Copyright 2019, Danang Galuh Tegar Prasetyo & Mokhamad Mustaqim.
+ * Copyright 2019, The OFO Mania Team.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,11 +13,22 @@
  * limitations under the License.
  */
 
-require('dotenv').config();
+import { Default, Property, Required } from '@tsed/common';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
+import { v1 as uuidv1 } from 'uuid';
 
-export const PassportConfig = {
-	strategy: process.env.AUTH_STRATEGY || 'jwt',
-	jwt: {
-		secret: process.env.AUTH_JWT_SECRET,
-	},
-};
+@Entity()
+@Unique(['one_time_token_id'])
+export class OneTimeToken {
+	@PrimaryColumn({ length: 36 })
+	@Default(uuidv1())
+	one_time_token_id: string = uuidv1();
+
+	@Column({ length: 36 })
+	@Required()
+	user_id: string;
+
+	@CreateDateColumn({ type: 'timestamp' })
+	@Property()
+	created_at: Date;
+}

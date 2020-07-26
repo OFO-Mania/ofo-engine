@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 /**
  * Copyright 2019, Danang Galuh Tegar Prasetyo & Mokhamad Mustaqim.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +17,14 @@
 
 require('dotenv').config();
 
-export const PassportConfig = {
-	strategy: process.env.AUTH_STRATEGY || 'jwt',
-	jwt: {
-		secret: process.env.AUTH_JWT_SECRET,
+export const MobilePulsaConfig = {
+	enable: process.env.MOBILEPULSA_ENABLE == 'true' || false,
+	username: process.env.MOBILEPULSA_USERNAME,
+	apiKey: process.env.MOBILEPULSA_API_KEY,
+	generateSignature(reference_id: string) {
+		return crypto
+			.createHash('md5')
+			.update(this.username + this.apiKey + reference_id)
+			.digest('hex');
 	},
 };

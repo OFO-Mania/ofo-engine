@@ -15,9 +15,10 @@
 
 require('dotenv').config();
 
-export const PassportConfig = {
-	strategy: process.env.AUTH_STRATEGY || 'jwt',
-	jwt: {
-		secret: process.env.AUTH_JWT_SECRET,
+export const PushNotificationConfig = {
+	onesignal: {
+		enable: process.env.ONESIGNAL_ENABLE == 'true' || false,
+		apiKey: process.env.ONESIGNAL_API_KEY,
+		applicationIdentifier: process.env.ONESIGNAL_APP_ID,
 	},
 };

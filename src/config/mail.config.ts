@@ -16,6 +16,6 @@
 require('dotenv').config();
 
 export const MailConfig = {
-	sendGridKey: process.env.SENDGRID_API_KEY
+	enable: process.env.SENDGRID_ENABLE == 'true' || false,
+	sendGridKey: process.env.SENDGRID_API_KEY,
 };
-

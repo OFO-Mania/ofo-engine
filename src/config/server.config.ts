@@ -18,5 +18,6 @@ require('dotenv').config();
 export const ServerConfig = {
 	baseDomain: process.env.BASE_DOMAIN || 'localhost',
 	address: process.env.ADDRESS || '0.0.0.0',
-	port: process.env.PORT || '8000'
+	port: process.env.PORT || '8000',
+	httpsEnable: process.env.HTTPS_ENABLE == 'true' || false,
 };

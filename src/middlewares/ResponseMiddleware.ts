@@ -14,26 +14,18 @@
  */
 
 import { isBoolean, isNumber, isObject, isStream, isString } from '@tsed/core';
-import {
-	IMiddleware,
-	OverrideProvider,
-	Res,
-	ResponseData,
-	SendResponseMiddleware,
-} from '@tsed/common';
+import { IMiddleware, OverrideProvider, Res, ResponseData, SendResponseMiddleware } from '@tsed/common';
 
 @OverrideProvider(SendResponseMiddleware)
 export class ResponseMiddleware extends SendResponseMiddleware implements IMiddleware {
-
 	public use(@ResponseData() data: any, @Res() response: Res) {
-
 		let message;
 
 		if (typeof data === 'undefined' || data === null) {
 			return response.json({
 				success: true,
 				code: 200,
-				data
+				data,
 			});
 		}
 
@@ -56,7 +48,7 @@ export class ResponseMiddleware extends SendResponseMiddleware implements IMiddl
 			const { $data, ...original } = data;
 			data = {
 				...original,
-				...$data
+				...$data,
 			};
 		}
 
@@ -64,7 +56,7 @@ export class ResponseMiddleware extends SendResponseMiddleware implements IMiddl
 			return response.json({
 				success: true,
 				code: 200,
-				message: data
+				message: data,
 			});
 		}
 
@@ -73,7 +65,7 @@ export class ResponseMiddleware extends SendResponseMiddleware implements IMiddl
 				success: true,
 				code: 200,
 				message,
-				data
+				data,
 			});
 		}
 
@@ -81,8 +73,7 @@ export class ResponseMiddleware extends SendResponseMiddleware implements IMiddl
 			success: true,
 			code: 200,
 			message,
-			data: this.converterService.serialize(data)
+			data: this.converterService.serialize(data),
 		});
 	}
-
 }

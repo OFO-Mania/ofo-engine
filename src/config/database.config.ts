@@ -23,4 +23,3 @@ export const DatabaseConfig = {
 	username: process.env.DB_USERNAME || 'root',
 	password: process.env.DB_PASSWORD,
 };
-

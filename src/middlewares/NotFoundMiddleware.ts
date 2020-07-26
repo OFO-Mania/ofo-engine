@@ -18,13 +18,15 @@ import { NotFound } from 'ts-httpexceptions';
 
 @Middleware()
 export class NotFoundMiddleware implements IMiddleware {
-
 	public use(@ResponseData() data: any, @Req() request: Req): void {
 		if (typeof data === 'undefined') {
 			throw new NotFound(
-				'The resource you\'re looking for at ' + request.method.toUpperCase() + ' ' + request.originalUrl + ' is not found.'
+				"The resource you're looking for at " +
+					request.method.toUpperCase() +
+					' ' +
+					request.originalUrl +
+					' is not found.'
 			);
 		}
 	}
-
 }

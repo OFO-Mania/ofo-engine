@@ -13,71 +13,44 @@
  * limitations under the License.
  */
 
-import { Default, IgnoreProperty, Property, Required } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
 import { v1 as uuidv1 } from 'uuid';
 
-export enum UserType {
-	MERCHANT = 'MERCHANT',
-	USER = 'USER',
-}
-
 @Entity()
-@Unique(['user_id'])
-export class User {
+@Unique(['deal_id'])
+export class Deal {
 	@PrimaryColumn({ length: 36 })
 	@Default(uuidv1())
-	user_id: string = uuidv1();
+	deal_id: string = uuidv1();
+
+	@Column({ length: 36 })
+	@Required()
+	merchant_id: string;
 
 	@Column({ length: 255 })
 	@Required()
-	full_name: string;
+	name: string;
 
-	@Column({ length: 15 })
+	@Column({ length: 1024 })
 	@Required()
-	phone_number: string;
+	description: string;
 
-	@Column({ length: 255 })
+	@Column({ length: 1024 })
 	@Required()
-	email_address: string;
-
-	@Column({ length: 255, nullable: true })
-	referral_code: string;
-
-	@Column()
-	@Required()
-	@Default(false)
-	has_security_code: boolean = false;
-
-	@Column({ length: 255 })
-	@Required()
-	@Default('')
-	@IgnoreProperty()
-	security_code: string = '';
-
-	@Column()
-	@Required()
-	@Default(false)
-	is_verified: boolean = false;
+	terms: string;
 
 	@Column({ length: 2048 })
 	@Default('')
 	image: string = '';
 
-	@Column({ length: 255 })
+	@Column({ type: 'timestamp' })
 	@Required()
-	@Default(UserType.USER)
-	type: UserType = UserType.USER;
+	start_at: Date;
 
-	@Column()
+	@Column({ type: 'timestamp' })
 	@Required()
-	@Default(0)
-	current_cash: number = 0;
-
-	@Column()
-	@Required()
-	@Default(0)
-	current_point: number = 0;
+	end_at: Date;
 
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()

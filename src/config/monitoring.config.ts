@@ -1,5 +1,5 @@
 /**
- * Copyright 2019, Danang Galuh Tegar Prasetyo & Mokhamad Mustaqim.
+ * Copyright 2019, The OFO Mania Team.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,9 +15,7 @@
 
 require('dotenv').config();
 
-export const PassportConfig = {
-	strategy: process.env.AUTH_STRATEGY || 'jwt',
-	jwt: {
-		secret: process.env.AUTH_JWT_SECRET,
-	},
+export const MonitoringConfig = {
+	enable: process.env.SENTRY_ENABLE == 'true' || false,
+	sentryDSN: process.env.SENTRY_DSN || '',
 };
