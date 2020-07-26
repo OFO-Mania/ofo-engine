@@ -13,17 +13,16 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 @Entity()
 @Unique(['one_time_token_id'])
 export class OneTimeToken {
-
 	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	one_time_token_id: string = uuid.v1();
+	@Default(uuidv1())
+	one_time_token_id: string = uuidv1();
 
 	@Column({ length: 36 })
 	@Required()
@@ -32,6 +31,4 @@ export class OneTimeToken {
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
 	created_at: Date;
-
 }
-

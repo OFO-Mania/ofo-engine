@@ -13,27 +13,26 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 @Entity()
 @Unique(['bank_account_id'])
 export class BankAccount {
-
 	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	bank_account_id: string = uuid.v1();
+	@Default(uuidv1())
+	bank_account_id: string = uuidv1();
 
 	@Column({ length: 255 })
 	@Required()
 	name: string;
 
-    @Column({ length: 255 })
-    @Required()
-    account_number: string;
+	@Column({ length: 255 })
+	@Required()
+	account_number: string;
 
-    @Column({ length: 255 })
+	@Column({ length: 255 })
 	@Required()
 	bank: BankType;
 
@@ -44,9 +43,8 @@ export class BankAccount {
 	@UpdateDateColumn({ type: 'timestamp' })
 	@Property()
 	updated_at: Date;
-
 }
 
 export enum BankType {
-    BCA='BCA'
+	BCA = 'BCA',
 }

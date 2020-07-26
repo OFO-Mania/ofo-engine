@@ -24,13 +24,12 @@ import { ValidateRequest } from '../../../decorators/ValidateRequestDecorator';
 import { UserAuthenticationMiddleware } from '../../../middlewares/UserAuthenticationMiddleware';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { User } from '../../../model/User';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 import { BadRequest } from 'ts-httpexceptions';
 
 @Controller('/profile')
 @Docs('api-v1')
 export class ProfileController {
-
 	private manager: EntityManager;
 
 	constructor(private databaseService: DatabaseService) {}
@@ -47,7 +46,7 @@ export class ProfileController {
 
 	@Patch('/')
 	@ValidateRequest({
-		file: 'image'
+		file: 'image',
 	})
 	@UseAuth(UserAuthenticationMiddleware)
 	public async modifyProfile(@MultipartFile('image') file: Express.Multer.File, @Req() request: Req): Promise<any> {
@@ -55,13 +54,13 @@ export class ProfileController {
 			await this.databaseService.startTransaction();
 			const allowedImageFileExts = ['png', 'jpg', 'jpeg', 'gif'];
 			const userImageFileExt = file.originalname.split('.')[1].toLowerCase();
-			const userImageFileName = uuid.v1().concat('.').concat(userImageFileExt);
+			const userImageFileName = uuidv1().concat('.').concat(userImageFileExt);
 			const isAllowedExt = allowedImageFileExts.includes(userImageFileExt);
 			const isAllowedMimeType = file.mimetype.startsWith('image/');
 			if (!isAllowedExt || !isAllowedMimeType) {
-				throw new BadRequest('The uploaded file is not an image file.')
+				throw new BadRequest('The uploaded file is not an image file.');
 			}
-			let user: User = <User> (<any>request).user;
+			let user: User = <User>(<any>request).user;
 			const ugcPath = path.join(process.cwd(), 'ugc');
 			const userUgcPath = path.join(ugcPath, user.user_id);
 			const userImageDirPath = path.join(userUgcPath, 'profile-images');
@@ -80,13 +79,15 @@ export class ProfileController {
 			user = await this.manager.save(user);
 			await this.databaseService.commit();
 			const { security_code, ...payload } = user;
-			return { user: { ...payload, image: `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}` } };
+			return {
+				user: {
+					...payload,
+					image: `https://${process.env.BASE_DOMAIN}/static/${user.user_id}/profile-images/${userImageFileName}`,
+				},
+			};
 		} catch (error) {
 			await this.databaseService.rollback();
 			throw error;
 		}
-
-
 	}
-
 }

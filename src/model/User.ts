@@ -13,22 +13,21 @@
  * limitations under the License.
  */
 
-import { Default, IgnoreProperty, Property, Required, } from '@tsed/common';
+import { Default, IgnoreProperty, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 export enum UserType {
-    MERCHANT = 'MERCHANT',
-    USER = 'USER',
+	MERCHANT = 'MERCHANT',
+	USER = 'USER',
 }
 
 @Entity()
 @Unique(['user_id'])
 export class User {
-
 	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	user_id: string = uuid.v1();
+	@Default(uuidv1())
+	user_id: string = uuidv1();
 
 	@Column({ length: 255 })
 	@Required()
@@ -87,5 +86,4 @@ export class User {
 	@UpdateDateColumn({ type: 'timestamp' })
 	@Property()
 	updated_at: Date;
-
 }

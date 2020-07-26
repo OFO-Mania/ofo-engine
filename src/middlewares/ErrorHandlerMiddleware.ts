@@ -19,7 +19,6 @@ import { $log } from 'ts-log-debug';
 
 @OverrideProvider(GlobalErrorHandlerMiddleware)
 export class ErrorHandlerMiddleware extends GlobalErrorHandlerMiddleware implements IMiddleware {
-
 	public use(@Err() error: any, @Req() request: Req, @Res() response: Res): void {
 		if (response.headersSent) {
 			throw error;
@@ -28,25 +27,23 @@ export class ErrorHandlerMiddleware extends GlobalErrorHandlerMiddleware impleme
 			success: false,
 			code,
 			message,
-			sentry
+			sentry,
 		});
 		if (error instanceof Exception) {
 			$log.error('' + error);
-			response.status(error.status)
-				.json(craftErrorObject(error.message, error.status, (<any>response).sentry));
+			response.status(error.status).json(craftErrorObject(error.message, error.status, (<any>response).sentry));
 			return;
 		}
 
 		if (typeof error === 'string') {
-			response.status(500)
-				.json(craftErrorObject(error, 500, (<any>response).sentry));
+			response.status(500).json(craftErrorObject(error, 500, (<any>response).sentry));
 			return;
 		}
 
 		$log.error('' + error);
-		response.status(error.status || 500)
+		response
+			.status(error.status || 500)
 			.json(craftErrorObject(error.message, error.status || 500, (<any>response).sentry));
 		return;
 	}
-
 }

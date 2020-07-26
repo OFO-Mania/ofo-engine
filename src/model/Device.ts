@@ -13,22 +13,21 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 export enum DeviceType {
-	ANDROID='ANDROID',
-	IOS='IOS'
+	ANDROID = 'ANDROID',
+	IOS = 'IOS',
 }
 
 @Entity()
 @Unique(['device_id'])
 export class Device {
-
 	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	device_id: string = uuid.v1();
+	@Default(uuidv1())
+	device_id: string = uuidv1();
 
 	@Column({ length: 255 })
 	@Required()
@@ -42,5 +41,4 @@ export class Device {
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
 	created_at: Date;
-
 }

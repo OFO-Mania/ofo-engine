@@ -17,7 +17,5 @@ import { Controller, Get } from '@tsed/common';
 
 @Controller('/')
 export class MainController {
-
 	// Empty for now
-
 }

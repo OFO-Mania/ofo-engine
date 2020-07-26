@@ -24,9 +24,7 @@ import { Deal } from '../../../model/Deal';
 export class DealController {
 	private manager: EntityManager;
 
-	constructor(
-		private databaseService: DatabaseService,
-	) { }
+	constructor(private databaseService: DatabaseService) {}
 
 	public $afterRoutesInit(): void {
 		this.manager = this.databaseService.getManager();
@@ -38,26 +36,27 @@ export class DealController {
 		return {
 			merchants: await this.manager.find(User, {
 				type: UserType.MERCHANT,
-			})
+			}),
 		};
 	}
 
 	@Get('/deals')
 	@UseAuth(UserAuthenticationMiddleware)
 	public async getDeals(@Req() request: Req): Promise<{ deals: Deal[] }> {
-		const merchant: User = <User> (<any>request).user;
+		const merchant: User = <User>(<any>request).user;
 		// @ts-ignore
 		const deals = await this.manager.find(Deal);
 		let index = 0;
 		for (const deal of deals) {
-			(<any>deal).merchant_name = (await this.manager.findOne(User, {
-				user_id: deal.merchant_id
-			})).full_name;
+			(<any>deal).merchant_name = (
+				await this.manager.findOne(User, {
+					user_id: deal.merchant_id,
+				})
+			).full_name;
 			index++;
 		}
- 		return {
-			deals
-		}
+		return {
+			deals,
+		};
 	}
-
 }

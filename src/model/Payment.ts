@@ -13,40 +13,39 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique, UpdateDateColumn } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 @Entity()
 @Unique(['payment_id'])
 export class Payment {
+	@PrimaryColumn({ length: 36 })
+	@Default(uuidv1())
+	payment_id: string = uuidv1();
 
-    @PrimaryColumn({ length: 36 })
-    @Default(uuid.v1())
-    payment_id: string = uuid.v1();
+	@Column({ length: 255 })
+	@Required()
+	account_number: string;
 
-    @Column({ length: 255 })
-    @Required()
-    account_number: string;
+	@Column({ length: 255 })
+	@Required()
+	service: ServiceType;
 
-    @Column({ length: 255 })
-    @Required()
-    service: ServiceType;
+	@Column({ length: 1024 })
+	@Required()
+	details: string;
 
-    @Column({ length: 1024 })
-    @Required()
-    details: string;
+	@CreateDateColumn({ type: 'timestamp' })
+	@Property()
+	created_at: Date;
 
-    @CreateDateColumn({ type: 'timestamp' })
-    @Property()
-    created_at: Date;
-
-    @UpdateDateColumn({ type: 'timestamp' })
-    @Property()
-    updated_at: Date;
+	@UpdateDateColumn({ type: 'timestamp' })
+	@Property()
+	updated_at: Date;
 }
 
 export enum ServiceType {
-    PLN_POSTPAID='PLN_PREPAID',
-    PLN_PREPAID='PLN_PREPAID',
+	PLN_POSTPAID = 'PLN_PREPAID',
+	PLN_PREPAID = 'PLN_PREPAID',
 }

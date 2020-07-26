@@ -24,11 +24,11 @@ export class DatabaseService {
 	constructor(private typeORMService: TypeORMService) {}
 
 	$afterRoutesInit() {
-		this.queryRunner = this.typeORMService.get().createQueryRunner()
+		this.queryRunner = this.typeORMService.get().createQueryRunner();
 	}
 
 	public getManager(): EntityManager {
-		return this.queryRunner.manager
+		return this.queryRunner.manager;
 	}
 
 	public async startTransaction(): Promise<void> {
@@ -42,5 +42,4 @@ export class DatabaseService {
 	public async rollback(): Promise<void> {
 		await this.queryRunner.rollbackTransaction();
 	}
-
 }

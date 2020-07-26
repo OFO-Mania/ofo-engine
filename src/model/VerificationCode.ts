@@ -13,17 +13,16 @@
  * limitations under the License.
  */
 
-import { Default, Property, Required, } from '@tsed/common';
+import { Default, Property, Required } from '@tsed/common';
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
-import uuid from 'uuid';
+import { v1 as uuidv1 } from 'uuid';
 
 @Entity()
 @Unique(['verification_code_id'])
 export class VerificationCode {
-
 	@PrimaryColumn({ length: 36 })
-	@Default(uuid.v1())
-	verification_code_id: string = uuid.v1();
+	@Default(uuidv1())
+	verification_code_id: string = uuidv1();
 
 	@Column({ type: 'varchar', length: 255 })
 	@Required()
@@ -40,10 +39,9 @@ export class VerificationCode {
 	@CreateDateColumn({ type: 'timestamp' })
 	@Property()
 	created_at: Date;
-
 }
 
 export enum VerificationCodeType {
-	EMAIL_ADDRESS='EMAIL_ADDRESS',
-	PHONE_NUMBER='PHONE_NUMBER',
+	EMAIL_ADDRESS = 'EMAIL_ADDRESS',
+	PHONE_NUMBER = 'PHONE_NUMBER',
 }

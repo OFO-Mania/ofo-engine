@@ -19,7 +19,7 @@ import { AttachViewMiddleware } from '../middlewares/AttachViewMiddleware';
 
 export function Render(viewPath: string, viewOptions?: Object): Function {
 	return applyDecorators(
-		StoreSet(ResponseViewMiddleware, {viewPath, viewOptions}),
+		StoreSet(ResponseViewMiddleware, { viewPath, viewOptions }),
 		UseAfter(ResponseViewMiddleware),
 		UseAfter(AttachViewMiddleware)
 	);

@@ -23,7 +23,6 @@ import { User, UserType } from '../model/User';
 
 @Middleware()
 export class UserAuthenticationMiddleware implements IMiddleware {
-
 	private manager: EntityManager;
 
 	constructor(private databaseService: DatabaseService) {}
@@ -32,33 +31,25 @@ export class UserAuthenticationMiddleware implements IMiddleware {
 		this.manager = this.databaseService.getManager();
 	}
 
-	public async use(
-		@Req() request: Req,
-		@Res() response: Res
-	): Promise<void> {
-		const requestToken = request.headers['authorization'] ||
-			request.headers['x-access-token'];
+	public async use(@Req() request: Req, @Res() response: Res): Promise<void> {
+		const requestToken = request.headers['authorization'] || request.headers['x-access-token'];
 		if (!requestToken) {
 			throw new Unauthorized('Authentication needed to access this resource.');
 		}
-		const tokenString = Array.isArray(requestToken)
-			? requestToken[0]
-			: String(requestToken);
-		const token = tokenString.startsWith('Bearer ')
-			? tokenString.slice(7, tokenString.length)
-			: tokenString;
+		const tokenString = Array.isArray(requestToken) ? requestToken[0] : String(requestToken);
+		const token = tokenString.startsWith('Bearer ') ? tokenString.slice(7, tokenString.length) : tokenString;
 		try {
 			const payload = jwt.verify(token, PassportConfig.jwt.secret);
 			if (typeof payload === 'string') {
 				const user = await this.manager.findOne(User, {
 					user_id: payload,
-					type: UserType.USER
+					type: UserType.USER,
 				});
 				if (typeof user === 'undefined') {
 					throw new BadRequest('Authentication token is invalid.');
 				}
 				if (!user.is_verified) {
-					throw new Forbidden('Account has not been verified.')
+					throw new Forbidden('Account has not been verified.');
 				}
 				// User Authenticated
 				(<any>request).user = user;
@@ -66,7 +57,7 @@ export class UserAuthenticationMiddleware implements IMiddleware {
 			}
 		} catch (error) {
 			if (error.name === 'JsonWebTokenError' || error.name === 'NotBeforeError') {
-				error.message = `Authentication failed. The token you provided could not be proven authentic. [${error.name}|${error.message}]`
+				error.message = `Authentication failed. The token you provided could not be proven authentic. [${error.name}|${error.message}]`;
 			}
 			if (error.name === 'TokenExpiredError') {
 				error.message = `Your session has been expired. Please sign in again. [${error.name}|${error.message}]`;
@@ -77,5 +68,4 @@ export class UserAuthenticationMiddleware implements IMiddleware {
 			throw new Unauthorized('You are not authenticated to access this resource.');
 		}
 	}
-
 }

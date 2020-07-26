@@ -32,7 +32,6 @@ import { OneTimeToken } from '../model/OneTimeToken';
 @Controller('/auth/merchant')
 @Docs('api-v1')
 export class MerchantAuthenticationController {
-
 	private manager: EntityManager;
 
 	constructor(private databaseService: DatabaseService) {}
@@ -41,13 +40,7 @@ export class MerchantAuthenticationController {
 		const availableCharacters = '0123456789';
 		const otp = [];
 		for (let i = 0; i < 4; i++) {
-			otp.push(
-				availableCharacters.charAt(
-					Math.floor(
-						Math.random() * availableCharacters.length
-					)
-				)
-			);
+			otp.push(availableCharacters.charAt(Math.floor(Math.random() * availableCharacters.length)));
 		}
 		return otp.join('');
 	}
@@ -59,7 +52,7 @@ export class MerchantAuthenticationController {
 	@Post('/join')
 	@ValidateRequest({
 		body: ['full_name', 'phone_number', 'email_address', 'security_code'],
-		useTrim: true
+		useTrim: true,
 	})
 	public async join(@Req() request: Req, @Res() response: Res): Promise<{ user: User }> {
 		try {
@@ -74,11 +67,11 @@ export class MerchantAuthenticationController {
 				/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 			);
 			if (!emailRegExp.test(body.email_address)) {
-				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`)
+				throw new BadRequest(`Email address ${body.email_address} is not a valid email address.`);
 			}
 			let user = await this.manager.findOne(User, {
 				email_address: body.email_address,
-				type: UserType.MERCHANT
+				type: UserType.MERCHANT,
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -98,7 +91,7 @@ export class MerchantAuthenticationController {
 			}
 			user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.MERCHANT
+				type: UserType.MERCHANT,
 			});
 			if (typeof user !== 'undefined') {
 				if (user.is_verified) {
@@ -127,7 +120,7 @@ export class MerchantAuthenticationController {
 	@Post('/phone_verification/send')
 	@ValidateRequest({
 		body: ['phone_number'],
-		useTrim: true
+		useTrim: true,
 	})
 	public async sendPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<string> {
 		try {
@@ -143,19 +136,19 @@ export class MerchantAuthenticationController {
 			}
 			const user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.MERCHANT
+				type: UserType.MERCHANT,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered merchant.`);
 			}
 			let verificationCode = await this.manager.findOne(VerificationCode, {
 				type: VerificationCodeType.PHONE_NUMBER,
-				user_id: user.user_id
+				user_id: user.user_id,
 			});
 			if (typeof verificationCode !== 'undefined') {
-				const delta = (new Date()).getTime() - verificationCode.created_at.getTime();
-				if (delta < (30 * 1000)) {
-					const waitTime = Math.ceil(((30 * 1000) - delta) / 1000);
+				const delta = new Date().getTime() - verificationCode.created_at.getTime();
+				if (delta < 30 * 1000) {
+					const waitTime = Math.ceil((30 * 1000 - delta) / 1000);
 					throw new BadRequest(`Please wait ${waitTime} seconds to request new phone verification code.`);
 				}
 				await this.manager.remove(verificationCode);
@@ -176,7 +169,7 @@ Call 0857-2563-9268 for help
 
 ${user.user_id}`,
 				messagingServiceSid: MessagingConfig.twilio.messagingServiceID,
-				to: body.phone_number
+				to: body.phone_number,
 			});
 			await this.databaseService.commit();
 			return 'We have sent a verification code to your phone number.';
@@ -189,11 +182,14 @@ ${user.user_id}`,
 	@Post('/phone_verification/verify')
 	@ValidateRequest({
 		body: ['phone_number', 'verification_code'],
-		useTrim: true
+		useTrim: true,
 	})
-	public async verifyPhoneVerification(@Req() request: Req, @Res() response: Res): Promise<{
-		has_security_code: boolean,
-		one_time_token: string
+	public async verifyPhoneVerification(
+		@Req() request: Req,
+		@Res() response: Res
+	): Promise<{
+		has_security_code: boolean;
+		one_time_token: string;
 	}> {
 		try {
 			await this.databaseService.startTransaction();
@@ -209,7 +205,7 @@ ${user.user_id}`,
 			}
 			let user = await this.manager.findOne(User, {
 				phone_number: body.phone_number,
-				type: UserType.MERCHANT
+				type: UserType.MERCHANT,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`Phone number ${body.phone_number} is not a registered user.`);
@@ -233,7 +229,7 @@ ${user.user_id}`,
 			await this.databaseService.commit();
 			return {
 				has_security_code: user.has_security_code,
-				one_time_token: oneTimeToken.one_time_token_id
+				one_time_token: oneTimeToken.one_time_token_id,
 			};
 		} catch (error) {
 			await this.databaseService.rollback();
@@ -243,10 +239,10 @@ ${user.user_id}`,
 
 	@Post('/sign_in')
 	@ValidateRequest({
-		body: [ 'one_time_token', 'security_code' ],
-		useTrim: true
+		body: ['one_time_token', 'security_code'],
+		useTrim: true,
 	})
-	public async signIn(@Req() request: Req, @Res() response: Res): Promise<{ user: User, token: string }> {
+	public async signIn(@Req() request: Req, @Res() response: Res): Promise<{ user: User; token: string }> {
 		try {
 			await this.databaseService.startTransaction();
 			const body = {
@@ -254,13 +250,13 @@ ${user.user_id}`,
 				security_code: request.body.security_code,
 			};
 			let oneTimeToken = await this.manager.findOne(OneTimeToken, {
-				one_time_token_id: body.one_time_token
+				one_time_token_id: body.one_time_token,
 			});
 			if (typeof oneTimeToken === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
 			}
 			let user = await this.manager.findOne(User, {
-				user_id: oneTimeToken.user_id
+				user_id: oneTimeToken.user_id,
 			});
 			if (typeof user === 'undefined') {
 				throw new BadRequest(`The provided One Time Token is invalid.`);
@@ -281,5 +277,4 @@ ${user.user_id}`,
 			throw error;
 		}
 	}
-
 }
