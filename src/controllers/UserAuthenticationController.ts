@@ -284,6 +284,7 @@ ${user.user_id}`;
 			verificationCode.user_id = user.user_id;
 			verificationCode.value = UserAuthenticationController.generateVerificationCode();
 			verificationCode = await this.manager.save(verificationCode);
+			await this.databaseService.commit();
 			// Send E-mail
 			if (MailConfig.enable) {
 				const message = {
@@ -301,7 +302,6 @@ To confirm that this is your email, please insert the Verification Code: ${verif
 `,
 				};
 				await SendGridMail.send(message);
-				await this.databaseService.commit();
 				return 'We have sent a verification code to your email address.';
 			} else {
 				return `Your verification code is ${verificationCode.value}. [Mail Service Disabled]`;
