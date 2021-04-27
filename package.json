@@ -45,7 +45,7 @@
 		"method-override": "^3.0.0",
 		"multer": "^1.4.2",
 		"mysql": "^2.18.1",
-		"redis": "^3.0.2",
+		"redis": "^3.1.1",
 		"swagger-schema-official": "^2.0.0-bab6bed",
 		"ts-httpexceptions": "^4.1.0",
 		"twilio": "^3.48.1",
