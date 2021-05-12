@@ -21,7 +21,7 @@
 		"@sentry/node": "5.20.1",
 		"@tsed/ajv": "^5.61.1",
 		"@tsed/common": "^5.61.1",
-		"@tsed/core": "^5.61.1",
+		"@tsed/core": "^5.65.7",
 		"@tsed/di": "^5.61.1",
 		"@tsed/multipartfiles": "^5.61.1",
 		"@tsed/platform-express": "^5.61.1",
